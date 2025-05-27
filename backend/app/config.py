@@ -27,5 +27,7 @@ class Settings(BaseSettings):
 
     # CORS settings (add this for frontend integration)
     CORS_ORIGINS: List[str] = ["http://localhost", "http://localhost:3000"] # Example origins
+    
+    TEMP_DIR: str = "/tmp/knowledge_relay_uploads"
 
 settings = Settings()
