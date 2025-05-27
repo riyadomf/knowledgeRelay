@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 import uuid
 import json
 import logging
@@ -11,7 +12,7 @@ from langchain_core.documents import Document
 from app import schemas, crud, models
 from app.core.vector_store import ChromaDBManager
 from app.core.document_loaders import load_document
-from app.core.text_splitters import split_documents
+from app.core.text_splitters import split_documents, load_and_chunk_file
 from app.services.llm_service import LLMService
 
 logger = logging.getLogger(__name__)
@@ -113,7 +114,8 @@ class IngestionService:
 
         loaded_documents = load_document(temp_file_path, file_type)
         split_docs = split_documents(loaded_documents)
-
+        
+        
         document_db_entry = crud.create_document_knowledge_entry(
             db=self.db,
             project_id=project_id,
