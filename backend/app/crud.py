@@ -134,44 +134,7 @@ def get_unanswered_project_questions(db: Session, project_id: str) -> List[model
         models.TextKnowledgeEntry.is_interactive_qa == True
     ).order_by(models.TextKnowledgeEntry.created_at).all()
 
-# Document Q&A Session CRUD operations
-def get_document_qa_session(db: Session, session_id: str) -> Optional[models.DocumentQASession]:
-    """Retrieve a document QA session by its ID."""
-    return db.query(models.DocumentQASession).filter(models.DocumentQASession.id == session_id).first()
-
-def create_document_qa_session(
-    db: Session,
-    project_id: str,
-    document_id: str,
-    current_question_text_entry_id: Optional[str] = None
-) -> models.DocumentQASession:
-    """Create a new document QA session."""
-    db_session = models.DocumentQASession(
-        id=str(uuid.uuid4()),
-        project_id=project_id,
-        document_id=document_id,
-        status="active",
-        current_question_text_entry_id=current_question_text_entry_id
-    )
-    db.add(db_session)
-    db.commit()
-    db.refresh(db_session)
-    return db_session
-
-def update_document_qa_session(
-    db: Session,
-    session: models.DocumentQASession,
-    status: Optional[str] = None,
-    current_question_text_entry_id: Optional[str] = None
-) -> models.DocumentQASession:
-    """Update an existing document QA session."""
-    if status is not None:
-        session.status = status
-    if current_question_text_entry_id is not None:
-        session.current_question_text_entry_id = current_question_text_entry_id
-    db.commit()
-    db.refresh(session)
-    return session
+# Document Q&A Session CRUD operations removed
 
 def get_unanswered_questions_for_document(db: Session, project_id: str, document_id: str) -> List[models.TextKnowledgeEntry]:
     """

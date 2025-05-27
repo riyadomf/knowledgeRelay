@@ -1,5 +1,5 @@
 import logging
-import uuid # Add this import
+import uuid 
 from typing import List, Dict, Union
 
 from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File
@@ -202,44 +202,44 @@ def respond_to_project_qa(
         logger.exception(f"Unexpected error responding to project Q&A session {request.session_id}.")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to respond to project Q&A: {e}")
 
-@app.post("/transfer/document-qa/start-session/", response_model=schemas.DocumentQASessionStartResponse, status_code=status.HTTP_200_OK)
-def start_document_qa_session(
-    project_id: str,
-    document_id: str,
+# New endpoints for document-specific Q&A without sessions
+@app.post("/transfer/document-qa/get-next-question/", response_model=schemas.GetNextDocumentQuestionResponse, status_code=status.HTTP_200_OK)
+def get_next_document_question(
+    request: schemas.GetNextDocumentQuestionRequest,
     ingestion_service: IngestionService = Depends(get_ingestion_service)):
     """
-    Initiate an interactive Q&A session for questions specifically generated from a document.
-    This fetches the oldest unanswered question for that document.
+    Retrieves the oldest unanswered question for a specific document.
     """
     try:
-        response = ingestion_service.start_document_qa_session(project_id, document_id)
+        response = ingestion_service.get_next_document_question(request.project_id, request.document_id)
         return response
     except ValueError as e:
-        logger.error(f"Error starting document Q&A session for project {project_id}, document {document_id}: {e}")
+        logger.error(f"Error getting next document question for project {request.project_id}, document {request.document_id}: {e}")
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except Exception as e:
-        logger.exception(f"Unexpected error starting document Q&A session for project {project_id}, document {document_id}.")
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to start document Q&A session: {e}")
+        logger.exception(f"Unexpected error getting next document question for project {request.project_id}, document {request.document_id}.")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to get next document question: {e}")
 
-@app.post("/transfer/document-qa/respond/", response_model=schemas.DocumentQAResponse, status_code=status.HTTP_200_OK)
-def respond_to_document_qa(
-    request: schemas.DocumentQARespondRequest,
+@app.post("/transfer/document-qa/answer-question/", response_model=schemas.AnswerDocumentQuestionResponse, status_code=status.HTTP_200_OK)
+def answer_document_question(
+    request: schemas.AnswerDocumentQuestionRequest,
     ingestion_service: IngestionService = Depends(get_ingestion_service)):
     """
-    Submit an answer to the current question in a document-specific Q&A session.
-    The answer is stored, and the next question (if any) is returned.
+    Submits an answer to a specific document question (identified by question_entry_id).
+    The answer is stored, and the Q&A pair is ingested into the knowledge base.
     """
     try:
-        response = ingestion_service.respond_to_document_qa(request.session_id, request.project_id, request.answer)
+        response = ingestion_service.answer_document_question(request.project_id, request.question_entry_id, request.answer)
         return response
     except ValueError as e:
-        logger.error(f"Error responding to document Q&A session {request.session_id}: {e}")
+        logger.error(f"Error answering document question {request.question_entry_id}: {e}")
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except HTTPException as e: 
         raise e
     except Exception as e:
-        logger.exception(f"Unexpected error responding to document Q&A session {request.session_id}.")
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to respond to document Q&A: {e}")
+        logger.exception(f"Unexpected error answering document question {request.question_entry_id}.")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to answer document question: {e}")
+
 
 # Knowledge Retrieval Endpoints (New Member)
 
