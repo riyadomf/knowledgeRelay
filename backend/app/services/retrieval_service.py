@@ -124,24 +124,19 @@ class RetrievalService:
         generated_answer_markdown = final_structured_response.answer
         
         # Append sources in Markdown if you want them embedded in the answer field
-        if final_structured_response.sources:
-            generated_answer_markdown += "\n\n---\n\n**Sources:**\n"
-            for src in final_structured_response.sources:
-                source_line = f"- **File:** {src.file_name}"
-                if src.file_path:
-                    source_line += f" ([Link]({src.file_path}))"
-                if src.page_number:
-                    source_line += f", **Page:** {src.page_number}"
-                if src.context:
-                    # You might want to truncate context if it's too long
-                    source_line += f"\n  *Context:* \"{src.context}\""
-                generated_answer_markdown += f"{source_line}\n"
+        # if final_structured_response.sources:
+        #     generated_answer_markdown += "\n\n---\n\n**Sources:**\n"
+        #     for src in final_structured_response.sources:
+        #         source_line = f"- **File:** {src.file_name}"
+        #         if src.file_path:
+        #             source_line += f" ([Link]({src.file_path}))"
+        #         if src.page_number:
+        #             source_line += f", **Page:** {src.page_number}"
+        #         if src.context:
+        #             # You might want to truncate context if it's too long
+        #             source_line += f"\n  *Context:* \"{src.context}\""
+        #         generated_answer_markdown += f"{source_line}\n"
 
-        print('===========================')
-        pprint.pprint(final_structured_response)
-        print('===========================')
-        pprint.pprint(generated_answer_markdown)
-        print('===========================')
 
         logger.info(f"Generated answer for query: '{query}' in project {project_id}.")
 
@@ -156,6 +151,6 @@ class RetrievalService:
         return schemas.ChatResponse(
             project_id=project_id,
             answer=generated_answer_markdown,
-            source_documents=source_documents_info
+            source_documents=final_structured_response.sources
         )
         
