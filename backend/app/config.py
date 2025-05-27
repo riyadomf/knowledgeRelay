@@ -11,14 +11,15 @@ class Settings(BaseSettings):
 
     OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
     OPENROUTER_API_KEY: str = os.getenv("OPENROUTER_API_KEY", "")
+    OPENROUTER_BASE_URL: str = os.getenv("OPENROUTER_BASE_URL", "https://api.openrouter.ai/v1")
     OLLAMA_BASE_URL: str = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
     
     # Configure which LLM provider to use (openai, openrouter, ollama)
-    LLM_PROVIDER: str = os.getenv("LLM_PROVIDER", "openai").lower() 
+    LLM_PROVIDER: str = os.getenv("LLM_PROVIDER", "openrouter").lower() 
     
     # Model names
     OPENAI_MODEL_NAME: str = "gpt-3.5-turbo"
-    OPENROUTER_MODEL_NAME: str = os.getenv("OPENROUTER_MODEL_NAME") # Example Openrouter model # Example Openrouter model
+    OPENROUTER_MODEL_NAME: str = os.getenv("OPENROUTER_MODEL_NAME") # Example Openrouter model
     OLLAMA_MODEL_NAME: str = "llama3.2" # Example Ollama model
     
     # Embedding model name (used by ChromaDB if not using OpenAI's embedding function)

@@ -26,6 +26,12 @@ class ChromaDBManager:
                 api_key=settings.OPENAI_API_KEY,
                 model_name="text-embedding-ada-002"
             )
+        elif settings.LLM_PROVIDER == "openrouter" and settings.OPENROUTER_API_KEY:
+            logger.info("Using OpenRouterEmbeddingFunction for ChromaDB.")
+            return embedding_functions.OpenRouterEmbeddingFunction(
+                api_key=settings.OPENROUTER_API_KEY,
+                model_name=settings.OPENROUTER_MODEL_NAME
+            )
         else:
             # Fallback for hackathon simplicity: use a pre-trained Sentence Transformer model
             # This requires 'sentence-transformers' package to be installed.
