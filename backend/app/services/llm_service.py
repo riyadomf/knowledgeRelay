@@ -34,7 +34,10 @@ class LLMService:
             return ChatOllama(base_url=settings.OLLAMA_BASE_URL, model=settings.OLLAMA_MODEL_NAME, temperature=0.7)
         else:
             raise ValueError(f"Unsupported LLM provider: {settings.LLM_PROVIDER}")
-
+        
+    def get_llm(self):
+        return self.llm
+    
     def generate_static_qa_question(self, existing_qa: List[Dict[str, str]]) -> str:
         """
         Generates a question for the old member for static Q&A.

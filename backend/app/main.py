@@ -1,4 +1,5 @@
 import logging
+import mimetypes
 import os
 import uuid 
 from typing import List, Dict, Union
@@ -292,5 +293,17 @@ def download_file(file_path: str, filename: str):
     # file_path = os.path.join(Settings.TEMP_DIR, project_id, filename)
     if not os.path.exists(file_path):
         raise HTTPException(status_code=404, detail="File not found")
-    return FileResponse(path=file_path, filename=filename, media_type="application/octet-stream")
+    
+    mime_type, _ = mimetypes.guess_type(filename)
+    mime_type = mime_type or "application/octet-stream"
+
+    return FileResponse(
+        path=file_path,
+        media_type=mime_type,
+        filename=filename,
+        headers={
+            "Content-Disposition": f'inline; filename="{filename}"'
+        }
+    )
+    
 
