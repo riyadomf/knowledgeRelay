@@ -104,7 +104,7 @@ class IngestionService:
             logger.error(f"Project with ID {project_id} not found for document ingestion.")
             raise ValueError(f"Project with ID {project_id} not found.")
 
-        temp_dir = Settings.TEMP_DIR
+        temp_dir = "/tmp/knowledge_relay_uploads"
         os.makedirs(temp_dir, exist_ok=True)
         unique_file_name = f"{uuid.uuid4()}_{file_name}"
         temp_file_path = os.path.join(temp_dir, unique_file_name)
