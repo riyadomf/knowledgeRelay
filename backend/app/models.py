@@ -1,9 +1,9 @@
 import datetime
 import uuid
-from typing import Optional, List # Added List for relationships
+from typing import Optional, List 
 
-from sqlalchemy.orm import Mapped, mapped_column, relationship # Added relationship
-from sqlalchemy import String, Text, DateTime, func, ForeignKey # Import func and ForeignKey
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy import String, Text, DateTime, func, ForeignKey # Import ForeignKey
 
 from .database import Base
 
@@ -20,8 +20,7 @@ class Project(Base):
     document_entries: Mapped[List["DocumentKnowledgeEntry"]] = relationship("DocumentKnowledgeEntry", back_populates="project", cascade="all, delete-orphan")
     text_entries: Mapped[List["TextKnowledgeEntry"]] = relationship("TextKnowledgeEntry", back_populates="project", cascade="all, delete-orphan")
     project_qa_sessions: Mapped[List["ProjectQASession"]] = relationship("ProjectQASession", back_populates="project", cascade="all, delete-orphan")
-    document_qa_sessions: Mapped[List["DocumentQASession"]] = relationship("DocumentQASession", back_populates="project", cascade="all, delete-orphan")
-
+    # DocumentQASession relationship removed
 
     def __repr__(self) -> str:
         return f"<Project(id='{self.id}', name='{self.name}')>"
@@ -38,8 +37,7 @@ class DocumentKnowledgeEntry(Base):
 
     # Relationships
     project: Mapped["Project"] = relationship("Project", back_populates="document_entries")
-    # text_chunks: Mapped[List["TextKnowledgeEntry"]] = relationship("TextKnowledgeEntry", back_populates="document_entry") # Removed this relationship here, as chunks are not stored as TKE
-    document_qa_sessions: Mapped[List["DocumentQASession"]] = relationship("DocumentQASession", back_populates="document_entry", cascade="all, delete-orphan")
+    # DocumentQASession relationship removed
 
     def __repr__(self) -> str:
         return f"<DocumentKnowledgeEntry(id='{self.id}', file_name='{self.file_name}', project_id='{self.project_id}')>"
@@ -88,24 +86,3 @@ class ProjectQASession(Base):
 
     def __repr__(self) -> str:
         return f"<ProjectQASession(id='{self.id}', project_id='{self.project_id}', status='{self.status}')>"
-
-class DocumentQASession(Base):
-    __tablename__ = "document_qa_sessions"
-
-    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
-    project_id: Mapped[str] = mapped_column(String, ForeignKey("projects.id"), index=True)
-    document_id: Mapped[str] = mapped_column(String, ForeignKey("document_knowledge_entries.id"), index=True) # ID of the document being queried
-    status: Mapped[str] = mapped_column(String) # e.g., "active", "completed", "aborted"
-    current_question_text_entry_id: Mapped[Optional[str]] = mapped_column(String, ForeignKey("text_knowledge_entries.id"), nullable=True) # ID of the TextKnowledgeEntry being answered
-
-    created_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), default=func.now())
-    # Removed updated_at for simplicity
-
-    # Relationships
-    project: Mapped["Project"] = relationship("Project", back_populates="document_qa_sessions")
-    document_entry: Mapped["DocumentKnowledgeEntry"] = relationship("DocumentKnowledgeEntry", back_populates="document_qa_sessions")
-    current_question_entry: Mapped[Optional["TextKnowledgeEntry"]] = relationship("TextKnowledgeEntry", foreign_keys=[current_question_text_entry_id])
-
-
-    def __repr__(self) -> str:
-        return f"<DocumentQASession(id='{self.id}', document_id='{self.document_id}', status='{self.status}')>"

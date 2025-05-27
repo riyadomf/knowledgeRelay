@@ -141,7 +141,6 @@ class IngestionService:
         """
         Ingests a document: creates a DocumentKnowledgeEntry, chunks the document,
         and stores the chunks' embeddings in ChromaDB.
-        NOTE: This function no longer creates TextKnowledgeEntry for each chunk's content.
         """
         project = crud.get_project(self.db, project_id)
         if not project:
@@ -489,14 +488,14 @@ class IngestionService:
             message="Answer recorded." + (" Session completed." if session_is_complete else " Here's the next question.")
         )
 
-    def start_document_qa_session(self, project_id: str, document_id: str) -> schemas.DocumentQASessionStartResponse: 
+    # Removed start_document_qa_session and respond_to_document_qa from IngestionService
+    def get_next_document_question(self, project_id: str, document_id: str) -> schemas.GetNextDocumentQuestionResponse:
         """
-        Starts an interactive Q&A session for questions generated from a specific document.
-        It retrieves the oldest unanswered question for the given document.
+        Retrieves the oldest unanswered question for a specific document.
         """
         project = crud.get_project(self.db, project_id)
         if not project:
-            logger.error(f"Project with ID {project_id} not found for starting document Q&A.")
+            logger.error(f"Project with ID {project_id} not found for getting next document question.")
             raise ValueError(f"Project with ID {project_id} not found.")
         
         document_entry = crud.get_document_knowledge_entry(self.db, document_id)
@@ -507,67 +506,52 @@ class IngestionService:
         unanswered_questions = crud.get_unanswered_questions_for_document(self.db, project_id, document_id)
         
         if not unanswered_questions:
-            session = crud.create_document_qa_session(self.db, project_id, document_id, current_question_text_entry_id=None)
-            crud.update_document_qa_session(self.db, session, status="no_questions")
-            logger.info(f"Started document Q&A session {session.id} for document {document_id}, but no unanswered questions found.")
-            return schemas.DocumentQASessionStartResponse(
-                session_id=session.id,
+            logger.info(f"No unanswered questions found for document {document_id} in project {project_id}.")
+            return schemas.GetNextDocumentQuestionResponse(
                 project_id=project_id,
                 document_id=document_id,
                 question=None,
                 question_entry_id=None,
                 is_complete=True, 
-                message="No unanswered questions found for this document. Session completed. Please generate questions first if needed."
+                message="No unanswered questions found for this document."
             )
         
-        first_question_entry = unanswered_questions[0]
-        session = crud.create_document_qa_session(self.db, project_id, document_id, first_question_entry.id)
+        next_question_entry = unanswered_questions[0] # Get the oldest one
         
-        logger.info(f"Started document Q&A session {session.id} for document {document_id} with first question {first_question_entry.id}.")
-        return schemas.DocumentQASessionStartResponse(
-            session_id=session.id,
+        logger.info(f"Fetched next unanswered question {next_question_entry.id} for document {document_id}.")
+        return schemas.GetNextDocumentQuestionResponse(
             project_id=project_id,
             document_id=document_id,
-            question=first_question_entry.question,
-            question_entry_id=first_question_entry.id,
+            question=next_question_entry.question,
+            question_entry_id=next_question_entry.id,
             is_complete=False,
-            message="Document Q&A session started. Here's the first question."
+            message="Next unanswered question retrieved."
         )
 
-    def respond_to_document_qa(self, session_id: str, project_id: str, answer: str) -> schemas.DocumentQAResponse: 
+    def answer_document_question(self, project_id: str, question_entry_id: str, answer: str) -> schemas.AnswerDocumentQuestionResponse:
         """
-        Handles old member's answers in a document-specific interactive Q&A session.
-        Updates the TextKnowledgeEntry with the answer and retrieves the next unanswered question.
+        Updates a specific document question with an answer and ingests it into ChromaDB.
         """
-        session = crud.get_document_qa_session(self.db, session_id)
-        if not session or session.project_id != project_id or session.status == "completed":
-            logger.error(f"Document Q&A session {session_id} not found, invalid for project {project_id}, or already completed.")
-            raise HTTPException(status_code=400, detail="Document Q&A session not found, invalid, or already completed.")
+        project = crud.get_project(self.db, project_id)
+        if not project:
+            logger.error(f"Project with ID {project_id} not found for answering document question.")
+            raise ValueError(f"Project with ID {project_id} not found.")
 
-        if session.status == "no_questions":
-             return schemas.DocumentQAResponse(
-                session_id=session.id,
-                project_id=project_id,
-                next_question=None,
-                next_question_entry_id=None,
-                is_complete=True,
-                message="No questions available for this session. Session completed."
-            )
+        question_entry = crud.get_text_knowledge_entry_by_id(self.db, question_entry_id)
+        if not question_entry or question_entry.project_id != project_id or question_entry.answer is not None:
+            logger.error(f"Question entry {question_entry_id} not found, invalid for project {project_id}, or already answered.")
+            raise HTTPException(status_code=400, detail="Question entry not found, invalid, or already answered.")
+        
+        document_id = question_entry.document_knowledge_entry_id
+        if not document_id:
+            logger.error(f"Question entry {question_entry_id} is not linked to a document.")
+            raise HTTPException(status_code=400, detail="Question is not linked to a document.")
 
-        current_question_entry_id = session.current_question_text_entry_id
-        current_question_entry = crud.get_text_knowledge_entry_by_id(self.db, current_question_entry_id)
-
-        if not current_question_entry or \
-           current_question_entry.document_knowledge_entry_id != session.document_id or \
-           current_question_entry.answer is not None: 
-            logger.error(f"Current question entry {current_question_entry_id} not found, mismatch with session document, or already answered.")
-            raise HTTPException(status_code=400, detail="Current question entry invalid, missing, or already answered.")
-
-        crud.update_text_knowledge_entry_answer(self.db, current_question_entry_id, answer)
-        logger.info(f"Answered question {current_question_entry_id} for document {session.document_id}.")
+        crud.update_text_knowledge_entry_answer(self.db, question_entry_id, answer)
+        logger.info(f"Answered question {question_entry_id} for document {document_id}.")
 
         chroma_manager = ChromaDBManager(project_id)
-        doc_entry_for_meta = crud.get_document_knowledge_entry(self.db, session.document_id)
+        doc_entry_for_meta = crud.get_document_knowledge_entry(self.db, document_id)
         file_name_for_meta = doc_entry_for_meta.file_name if doc_entry_for_meta else "Unknown Document"
 
         chroma_manager.add_documents(
@@ -575,37 +559,22 @@ class IngestionService:
             metadatas=[{
                 "type": "document_qa",
                 "project_id": project_id,
-                "document_id": session.document_id,
+                "document_id": document_id,
                 "file_name": file_name_for_meta, 
-                "question": current_question_entry.question,
+                "question": question_entry.question,
                 "answer": answer,
-                "source_context": current_question_entry.source_context if current_question_entry.source_context else answer 
+                "source_context": question_entry.source_context if question_entry.source_context else answer 
             }],
-            ids=[f"doc_qa_{current_question_entry_id}"]
+            ids=[f"doc_qa_{question_entry_id}"]
         )
 
-        unanswered_questions = crud.get_unanswered_questions_for_document(self.db, project_id, session.document_id)
-        
-        if unanswered_questions:
-            next_question_entry = unanswered_questions[0] 
-            crud.update_document_qa_session(self.db, session, current_question_text_entry_id=next_question_entry.id)
-            logger.info(f"Session {session.id}: Answered question, next question {next_question_entry.id}.")
-            return schemas.DocumentQAResponse(
-                session_id=session.id,
-                project_id=project_id,
-                next_question=next_question_entry.question,
-                next_question_entry_id=next_question_entry.id,
-                is_complete=False,
-                message="Answer recorded. Here's the next question for this document."
-            )
-        else:
-            crud.update_document_qa_session(self.db, session, status="completed", current_question_text_entry_id=None)
-            logger.info(f"Document Q&A session {session.id} completed. All questions answered.")
-            return schemas.DocumentQAResponse(
-                session_id=session.id,
-                project_id=project_id,
-                next_question=None,
-                next_question_entry_id=None,
-                is_complete=True,
-                message="All generated questions for this document have been answered. Session completed."
-            )
+        # Check if there are more unanswered questions for this document
+        remaining_unanswered = crud.get_unanswered_questions_for_document(self.db, project_id, document_id)
+        is_complete = not bool(remaining_unanswered)
+
+        return schemas.AnswerDocumentQuestionResponse(
+            project_id=project_id,
+            question_entry_id=question_entry_id,
+            message="Answer recorded and knowledge base updated." + (" All questions for this document are now answered." if is_complete else ""),
+            is_complete=is_complete
+        )

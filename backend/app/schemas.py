@@ -106,28 +106,30 @@ class ProjectQAResponse(BaseModel):
     is_complete: bool
     message: str
 
-# Document-specific Q&A
-class DocumentQASessionStartResponse(BaseModel):
-    session_id: str
+# Document-specific Q&A schemas removed. New ones below:
+class GetNextDocumentQuestionRequest(BaseModel):
+    project_id: str
+    document_id: str
+
+class GetNextDocumentQuestionResponse(BaseModel):
     project_id: str
     document_id: str
     question: Optional[str]
-    question_entry_id: Optional[str] = None 
+    question_entry_id: Optional[str]
     is_complete: bool
     message: str
 
-class DocumentQARespondRequest(BaseModel):
-    session_id: str
+class AnswerDocumentQuestionRequest(BaseModel):
     project_id: str
+    question_entry_id: str
     answer: str
 
-class DocumentQAResponse(BaseModel):
-    session_id: str
+class AnswerDocumentQuestionResponse(BaseModel):
     project_id: str
-    next_question: Optional[str]
-    next_question_entry_id: Optional[str] = None 
-    is_complete: bool
+    question_entry_id: str
     message: str
+    is_complete: bool # Indicates if all questions for this document are now answered
+
 
 # --- Retrieval Schemas (New Member) ---
 
