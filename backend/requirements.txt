@@ -1,0 +1,17 @@
+fastapi
+uvicorn
+sqlalchemy
+pydantic
+python-dotenv
+langchain>=0.1.0 # Ensure you're on v0.1.x or higher for LangChain v3
+langchain-community
+langchain-core
+langchain-openai # For OpenAI compatibility, even with Ollama/Openrouter via API
+chromadb
+python-multipart # For file uploads
+tiktoken # For token counting (useful with LangChain)
+unstructured[pdf] # For PDF processing (requires system dependencies like poppler-utils for Linux)
+python-docx # For Word document processing
+markdown-it-py # For Markdown processing (optional, good for parsing)
+sentence-transformers # For generic embeddings if not using OpenAI's
+ollama # If you want to use Ollama's native client for embeddings/generations
