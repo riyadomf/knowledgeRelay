@@ -485,29 +485,31 @@ function App() {
           <ChevronLeft size={20} className="mr-1" /> Back to Role Selection
         </button>
         <h2 className="text-3xl font-bold text-gray-800 mb-6 text-center">
-          Select or Create Project
+          Select {selectedRole !== "new_member" && " or Create "}Project
         </h2>
 
-        {/* Create Project Section */}
-        <div className="mb-8 p-6 border border-gray-200 rounded-lg bg-gray-50">
-          <h3 className="text-xl font-semibold text-gray-700 mb-4 flex items-center">
-            <PlusCircle size={20} className="mr-2" /> Create New Project
-          </h3>
-          <input
-            type="text"
-            placeholder="Project Name"
-            value={newProjectName}
-            onChange={(e) => setNewProjectName(e.target.value)}
-            className="w-full p-3 mb-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
-          />
-          <button
-            onClick={handleCreateProject}
-            className="w-full px-6 py-3 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 transition duration-300 ease-in-out"
-            disabled={loading}
-          >
-            {loading ? "Creating..." : "Create Project"}
-          </button>
-        </div>
+        {/* Create Project Section — hidden for new_member */}
+        {selectedRole !== "new_member" && (
+          <div className="mb-8 p-6 border border-gray-200 rounded-lg bg-gray-50">
+            <h3 className="text-xl font-semibold text-gray-700 mb-4 flex items-center">
+              <PlusCircle size={20} className="mr-2" /> Create New Project
+            </h3>
+            <input
+              type="text"
+              placeholder="Project Name"
+              value={newProjectName}
+              onChange={(e) => setNewProjectName(e.target.value)}
+              className="w-full p-3 mb-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+            />
+            <button
+              onClick={handleCreateProject}
+              className="w-full px-6 py-3 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 transition duration-300 ease-in-out"
+              disabled={loading}
+            >
+              {loading ? "Creating..." : "Create Project"}
+            </button>
+          </div>
+        )}
 
         {/* Select Project Section */}
         <div className="p-6 border border-gray-200 rounded-lg bg-gray-50">
