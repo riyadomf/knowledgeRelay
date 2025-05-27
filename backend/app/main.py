@@ -91,27 +91,27 @@ def get_project(project_id: str, db: Session = Depends(get_db)):
 
 # Knowledge Ingestion Endpoints
 
-@app.post("/transfer/static-qa/", response_model=schemas.StaticQAIngestResponse, status_code=status.HTTP_200_OK)
-def ingest_static_qa_data(
-    request: schemas.StaticQAIngestRequest,
-    ingestion_service: IngestionService = Depends(get_ingestion_service)):
-    """
-    Ingest static Q&A pairs (e.g., from a CSV or predefined list).
-    These are immediately available for new member retrieval.
-    """
-    try:
-        response = ingestion_service.ingest_static_qa(
-            project_id=request.project_id,
-            questions_answers=request.questions_answers,
-            document_knowledge_entry_id=request.document_id 
-        )
-        return response
-    except ValueError as e:
-        logger.error(f"Error ingesting static Q&A for project {request.project_id}: {e}")
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-    except Exception as e:
-        logger.exception(f"Unexpected error ingesting static Q&A for project {request.project_id}.")
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to ingest static Q&A: {e}")
+# @app.post("/transfer/static-qa/", response_model=schemas.StaticQAIngestResponse, status_code=status.HTTP_200_OK)
+# def ingest_static_qa_data(
+#     request: schemas.StaticQAIngestRequest,
+#     ingestion_service: IngestionService = Depends(get_ingestion_service)):
+#     """
+#     Ingest static Q&A pairs (e.g., from a CSV or predefined list).
+#     These are immediately available for new member retrieval.
+#     """
+#     try:
+#         response = ingestion_service.ingest_static_qa(
+#             project_id=request.project_id,
+#             questions_answers=request.questions_answers,
+#             document_knowledge_entry_id=request.document_id 
+#         )
+#         return response
+#     except ValueError as e:
+#         logger.error(f"Error ingesting static Q&A for project {request.project_id}: {e}")
+#         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+#     except Exception as e:
+#         logger.exception(f"Unexpected error ingesting static Q&A for project {request.project_id}.")
+#         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to ingest static Q&A: {e}")
 
 @app.post("/transfer/document/", response_model=schemas.FileUploadResponse, status_code=status.HTTP_200_OK)
 async def ingest_document(
@@ -169,20 +169,20 @@ def generate_questions_from_document(
 
 @app.post("/transfer/project-qa/start-session/", response_model=schemas.ProjectQASessionStartResponse, status_code=status.HTTP_200_OK)
 def start_project_qa_session(
-    project_id: str,
+    request: schemas.ProjectQASessionStartRequest,
     ingestion_service: IngestionService = Depends(get_ingestion_service)):
     """
     Initiate an interactive Q&A session for a project.
     This begins the process of asking an old member questions about the project.
     """
     try:
-        response = ingestion_service.start_project_qa_session(project_id)
+        response = ingestion_service.start_project_qa_session(request.project_id)
         return response
     except ValueError as e:
-        logger.error(f"Error starting project Q&A session for project {project_id}: {e}")
+        logger.error(f"Error starting project Q&A session for project {request.project_id}: {e}")
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except Exception as e:
-        logger.exception(f"Unexpected error starting project Q&A session for project {project_id}.")
+        logger.exception(f"Unexpected error starting project Q&A session for project {request.project_id}.")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to start project Q&A session: {e}")
 
 @app.post("/transfer/project-qa/respond/", response_model=schemas.ProjectQAResponse, status_code=status.HTTP_200_OK)

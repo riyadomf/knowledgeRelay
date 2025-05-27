@@ -93,6 +93,9 @@ class ProjectQASessionStartResponse(BaseModel):
     is_complete: bool
     message: str
 
+class ProjectQASessionStartRequest(BaseModel): # NEW SCHEMA
+    project_id: str
+
 class ProjectQARespondRequest(BaseModel):
     session_id: str
     project_id: str
