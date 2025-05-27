@@ -26,6 +26,7 @@ class LLMService:
             return ChatOpenAI(
                 api_key=settings.OPENROUTER_API_KEY, 
                 model_name=settings.OPENROUTER_MODEL_NAME,
+                base_url=settings.OPENROUTER_BASE_URL,
                 temperature=0.7
             )
         elif settings.LLM_PROVIDER == "ollama":

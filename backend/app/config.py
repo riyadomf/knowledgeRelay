@@ -8,6 +8,8 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "sqlite:///./sql_app.db"
     VECTOR_DB_PATH: str = "./chroma_db"
 
+    OPENROUTER_BASE_URL: str = "https://openrouter.ai/api/v1"
+
     OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
     OPENROUTER_API_KEY: str = os.getenv("OPENROUTER_API_KEY", "")
     OLLAMA_BASE_URL: str = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
@@ -25,5 +27,7 @@ class Settings(BaseSettings):
 
     # CORS settings (add this for frontend integration)
     CORS_ORIGINS: List[str] = ["http://localhost", "http://localhost:3000"] # Example origins
+    
+    TEMP_DIR: str = "/tmp/knowledge_relay_uploads"
 
 settings = Settings()
