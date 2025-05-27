@@ -62,17 +62,17 @@ class IngestionService:
                 "team practices, and important contacts. Avoid asking questions that have already been covered. "
                 "If you think enough information has been gathered, you can suggest concluding the session. "
                "Given the following knowledge about a project:\n{context_for_llm}\n"
-               "If you have no knowledge about the project. You can ask question like this"
-               "What is the primary purpose and mission of this project?",
-               "What are the key technologies, frameworks, and libraries used in this project?",
-               "Describe the overall architecture of the project (e.g., microservices, monolith, database choices).",
-               "What is the standard deployment process for this project? (e.g., CI/CD, manual steps, environments)",
-               "What are the most common pitfalls, tricky bugs, or unexpected behaviors new developers should be aware of?",
-               "Who are the key stakeholders or contact persons for different parts of the project (e.g., frontend, backend, database, infrastructure)?",
-               "Are there any specific team conventions, coding standards, or practices unique to this project?",
-               "Where can a new developer find important documentation, runbooks, or troubleshooting guides?",
-               "What are the major components or modules within the codebase, and what is their responsibility?",
-               "Is there anything else critical a new team member should know to get up to speed quickly?"
+               "If you have no knowledge about the project. You can start with some basic questions like this"
+               "-- What is the primary purpose and mission of this project?",
+               "-- What are the key technologies, frameworks, and libraries used in this project?",
+               "-- Describe the overall architecture of the project (e.g., microservices, monolith, database choices).",
+               "-- What is the standard deployment process for this project? (e.g., CI/CD, manual steps, environments)",
+               "-- What are the most common pitfalls, tricky bugs, or unexpected behaviors new developers should be aware of?",
+               "-- Who are the key stakeholders or contact persons for different parts of the project (e.g., frontend, backend, database, infrastructure)?",
+               "-- Are there any specific team conventions, coding standards, or practices unique to this project?",
+               "-- Where can a new developer find important documentation, runbooks, or troubleshooting guides?",
+               "-- What are the major components or modules within the codebase, and what is their responsibility?",
+               "-- Is there anything else critical a new team member should know to get up to speed quickly?"
                " List 5 important questions that a developer should be able to answer about this project. "
                "Return them as a numbered list (e.g., 1. ..., 2. ..., etc.)."
             )
