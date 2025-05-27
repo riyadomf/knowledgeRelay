@@ -34,8 +34,6 @@ class RetrievalService:
         chroma_manager = ChromaDBManager(project_id)
         lc_chat_history = self._format_chat_history(chat_history)
 
-        # 1. Contextualize the query using chat history
-        # If there's chat history, use the contextualize_q_chain
         if lc_chat_history:
             logger.info(f"Contextualizing query for project {project_id} with chat history.")
             standalone_query = self.contextualize_q_chain.invoke({
@@ -47,10 +45,8 @@ class RetrievalService:
             standalone_query = query
             logger.info(f"No chat history, using original query: {standalone_query}")
 
-        # 2. Retrieve relevant documents using the standalone query
         retrieved_docs_content, retrieved_metadatas = chroma_manager.query_documents([standalone_query])
         
-        # Convert retrieved content and metadata into LangChain Document objects
         retrieved_langchain_docs = []
         source_documents_info = []
         for i, doc_content in enumerate(retrieved_docs_content):
@@ -58,7 +54,6 @@ class RetrievalService:
             lc_doc = Document(page_content=doc_content, metadata=metadata)
             retrieved_langchain_docs.append(lc_doc)
 
-            # Prepare source information for the response
             source_documents_info.append(schemas.SourceDocument(
                 file_name=metadata.get("file_name", "Static Q&A" if metadata.get("type") == "static_qa" else "Unknown"),
                 question=metadata.get("question"),
@@ -75,7 +70,6 @@ class RetrievalService:
                 source_documents=[]
             )
 
-        # 3. Pass retrieved documents and original query + history to the QA chain
         final_answer_response = self.document_qa_chain.invoke({
             "context": retrieved_langchain_docs, 
             "input": query,
@@ -88,4 +82,3 @@ class RetrievalService:
             answer=final_answer_response.content,
             source_documents=source_documents_info
         )
-

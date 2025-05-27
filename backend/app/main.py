@@ -1,97 +1,105 @@
-from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File
-from fastapi.responses import JSONResponse
-from sqlalchemy.orm import Session
-from typing import List, Dict
 import logging
+import uuid # Add this import
+from typing import List, Dict, Union
 
-from app import models, schemas, crud
-from app.database import engine, get_db, Base
+from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File
+from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy.orm import Session
+
+from app import models, schemas
+from app.database import engine, get_db
 from app.services.ingestion_service import IngestionService
 from app.services.retrieval_service import RetrievalService
-from app.core.vector_store import ChromaDBManager 
 
 # Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Create database tables
-Base.metadata.create_all(bind=engine)
-logger.info("Database tables created/checked.")
+models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
-    title="KnowledgeRelay AI Backend",
-    description="AI-based knowledge transfer agent for project onboarding.",
-    version="1.0.0"
+    title="Knowledge Relay API",
+    description="API for ingesting knowledge, managing projects, and enabling Q&A sessions.",
+    version="0.1.0",
 )
 
-# Dependency to get IngestionService
-def get_ingestion_service(db: Session = Depends(get_db)) -> IngestionService:
+# Configure CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Dependency injection for services
+def get_ingestion_service(db: Session = Depends(get_db)):
     return IngestionService(db)
 
-# Dependency to get RetrievalService
-def get_retrieval_service(db: Session = Depends(get_db)) -> RetrievalService:
+def get_retrieval_service(db: Session = Depends(get_db)):
     return RetrievalService(db)
 
-
 @app.get("/")
-async def root():
-    return {"message": "Welcome to KnowledgeRelay AI Backend!"}
+def read_root():
+    return {"message": "Welcome to Knowledge Relay API"}
 
-# --- Project Management Endpoints ---
-@app.post("/projects/", response_model=schemas.Project, status_code=status.HTTP_201_CREATED)
+# Project Management Endpoints
+@app.post("/projects/", response_model=schemas.ProjectResponse, status_code=status.HTTP_201_CREATED)
 def create_project(project: schemas.ProjectCreate, db: Session = Depends(get_db)):
-    new_project = crud.create_project(db=db, project=project)
-    logger.info(f"Created new project: {new_project.id} - {new_project.name}")
-    return new_project
+    """
+    Create a new project. The 'description' field is optional.
+    """
+    logger.info(f"Attempting to create project: {project.name}")
+    try:
+        db_project = models.Project(
+            id=str(uuid.uuid4()), 
+            name=project.name,
+            description=project.description
+        )
+        db.add(db_project)
+        db.commit()
+        db.refresh(db_project)
+        logger.info(f"Project '{project.name}' created with ID: {db_project.id}")
+        return db_project
+    except Exception as e:
+        logger.error(f"Error creating project {project.name}: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to create project: {e}")
 
-@app.get("/projects/", response_model=List[schemas.Project])
-def get_all_projects(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    projects = crud.get_projects(db, skip=skip, limit=limit)
-    logger.info(f"Retrieved {len(projects)} projects.")
+@app.get("/projects/", response_model=List[schemas.ProjectResponse])
+def get_projects(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+    """
+    Retrieve a list of all projects.
+    """
+    projects = db.query(models.Project).offset(skip).limit(limit).all()
     return projects
 
-@app.get("/projects/{project_id}", response_model=schemas.Project)
-def get_project_by_id(project_id: str, db: Session = Depends(get_db)):
-    project = crud.get_project(db, project_id)
+@app.get("/projects/{project_id}", response_model=schemas.ProjectResponse)
+def get_project(project_id: str, db: Session = Depends(get_db)):
+    """
+    Retrieve a single project by its ID.
+    """
+    project = db.query(models.Project).filter(models.Project.id == project_id).first()
     if project is None:
         logger.warning(f"Project with ID {project_id} not found.")
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
-    logger.info(f"Retrieved project: {project_id}")
     return project
 
-@app.delete("/projects/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_project(project_id: str, db: Session = Depends(get_db)):
-    project = crud.get_project(db, project_id)
-    if not project:
-        logger.warning(f"Attempted to delete non-existent project: {project_id}")
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
 
-    try:
-        db.delete(project)
-        db.commit()
+# Knowledge Ingestion Endpoints
 
-        chroma_manager = ChromaDBManager(project_id)
-        chroma_manager.delete_collection()
-        logger.info(f"Project {project_id} and its knowledge base deleted successfully.")
-        return {"message": "Project and its knowledge base deleted successfully."} 
-    except Exception as e:
-        db.rollback()
-        logger.error(f"Error deleting project {project_id}: {e}")
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to delete project: {e}")
-
-
-# --- Old Member: Knowledge Transfer Endpoints ---
-
-# For bulk Q&A ingestion (general or document-related)
-@app.post("/transfer/static-qa/", response_model=Dict[str, str], status_code=status.HTTP_200_OK)
-def ingest_static_qa(
-    request: schemas.StaticQARequest,
-    ingestion_service: IngestionService = Depends(get_ingestion_service)
-):
+@app.post("/transfer/static-qa/", response_model=schemas.StaticQAIngestResponse, status_code=status.HTTP_200_OK)
+def ingest_static_qa_data(
+    request: schemas.StaticQAIngestRequest,
+    ingestion_service: IngestionService = Depends(get_ingestion_service)):
+    """
+    Ingest static Q&A pairs (e.g., from a CSV or predefined list).
+    These are immediately available for new member retrieval.
+    """
     try:
         response = ingestion_service.ingest_static_qa(
-            request.project_id, 
-            request.questions_answers, 
+            project_id=request.project_id,
+            questions_answers=request.questions_answers,
             document_knowledge_entry_id=request.document_id 
         )
         return response
@@ -102,13 +110,17 @@ def ingest_static_qa(
         logger.exception(f"Unexpected error ingesting static Q&A for project {request.project_id}.")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to ingest static Q&A: {e}")
 
-# For Document Upload & Chunking
 @app.post("/transfer/document/", response_model=schemas.FileUploadResponse, status_code=status.HTTP_200_OK)
 async def ingest_document(
     project_id: str,
     file: UploadFile = File(...),
-    ingestion_service: IngestionService = Depends(get_ingestion_service)
-):
+    ingestion_service: IngestionService = Depends(get_ingestion_service)):
+    """
+    Upload a document (PDF, Word, TXT, MD). The document is chunked, and its chunks'
+    embeddings are stored in the vector DB. A DocumentKnowledgeEntry is created.
+    This step prepares the document for question generation, but doesn't create
+    Q&A pairs yet.
+    """
     allowed_file_types = ["pdf", "word", "txt", "md"]
     file_extension = file.filename.split(".")[-1].lower()
 
@@ -130,12 +142,15 @@ async def ingest_document(
         logger.exception(f"Unexpected error ingesting document for project {project_id}.")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to ingest document: {e}")
 
-# For Document-specific Q&A: Generate Questions (stores as unanswered entries)
 @app.post("/transfer/document-qa/generate-questions/", response_model=schemas.DocumentQAGenerateQuestionsResponse, status_code=status.HTTP_200_OK)
 def generate_questions_from_document(
     request: schemas.DocumentQAGenerateQuestionsRequest,
-    ingestion_service: IngestionService = Depends(get_ingestion_service)
-):
+    ingestion_service: IngestionService = Depends(get_ingestion_service)):
+    """
+    Generate questions from an uploaded document's content using an LLM.
+    These questions are stored as TextKnowledgeEntry records with null answers,
+    awaiting an old member to provide answers.
+    """
     try:
         response = ingestion_service.generate_questions_from_document(request.project_id, request.document_id)
         return response
@@ -146,49 +161,17 @@ def generate_questions_from_document(
         logger.exception(f"Unexpected error generating questions from document {request.document_id}.")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to generate questions from document: {e}")
 
-# For Document-specific Q&A: Start Interactive Session
-@app.post("/transfer/document-qa/start-session/", response_model=schemas.DocumentQASessionStartResponse, status_code=status.HTTP_200_OK)
-def start_document_qa_session(
-    project_id: str,
-    document_id: str,
-    ingestion_service: IngestionService = Depends(get_ingestion_service)
-):
-    try:
-        response = ingestion_service.start_document_qa_session(project_id, document_id)
-        return response
-    except ValueError as e:
-        logger.error(f"Error starting document Q&A session for project {project_id}, document {document_id}: {e}")
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-    except Exception as e:
-        logger.exception(f"Unexpected error starting document Q&A session for project {project_id}, document {document_id}.")
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to start document Q&A session: {e}")
 
-# For Document-specific Q&A: Respond to Question
-@app.post("/transfer/document-qa/respond/", response_model=schemas.DocumentQAResponse, status_code=status.HTTP_200_OK)
-def respond_to_document_qa(
-    request: schemas.DocumentQAResponseRequest,
-    ingestion_service: IngestionService = Depends(get_ingestion_service)
-):
-    try:
-        response = ingestion_service.respond_to_document_qa(
-            request.session_id, request.project_id, request.answer
-        )
-        return response
-    except HTTPException as e: 
-        raise e
-    except ValueError as e:
-        logger.error(f"Error responding to document Q&A session {request.session_id}: {e}")
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-    except Exception as e:
-        logger.exception(f"Unexpected error responding to document Q&A session {request.session_id}.")
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to respond to document Q&A: {e}")
+# Interactive Q&A Session Endpoints (Old Member)
 
-# For Project-wide Q&A: Start Interactive Session
 @app.post("/transfer/project-qa/start-session/", response_model=schemas.ProjectQASessionStartResponse, status_code=status.HTTP_200_OK)
 def start_project_qa_session(
     project_id: str,
-    ingestion_service: IngestionService = Depends(get_ingestion_service)
-):
+    ingestion_service: IngestionService = Depends(get_ingestion_service)):
+    """
+    Initiate an interactive Q&A session for a project.
+    This begins the process of asking an old member questions about the project.
+    """
     try:
         response = ingestion_service.start_project_qa_session(project_id)
         return response
@@ -199,43 +182,100 @@ def start_project_qa_session(
         logger.exception(f"Unexpected error starting project Q&A session for project {project_id}.")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to start project Q&A session: {e}")
 
-# For Project-wide Q&A: Respond to Question
 @app.post("/transfer/project-qa/respond/", response_model=schemas.ProjectQAResponse, status_code=status.HTTP_200_OK)
 def respond_to_project_qa(
-    request: schemas.ProjectQAResponseRequest,
-    ingestion_service: IngestionService = Depends(get_ingestion_service)
-):
+    request: schemas.ProjectQARespondRequest,
+    ingestion_service: IngestionService = Depends(get_ingestion_service)):
+    """
+    Submit an answer to the current question in a project-wide Q&A session.
+    The answer is stored, and the next question (if any) is returned.
+    """
     try:
-        response = ingestion_service.respond_to_project_qa(
-            request.session_id, request.project_id, request.answer
-        )
+        response = ingestion_service.respond_to_project_qa(request.session_id, request.project_id, request.answer)
         return response
-    except HTTPException as e: # Catch explicit HTTPExceptions from service
-        raise e
     except ValueError as e:
         logger.error(f"Error responding to project Q&A session {request.session_id}: {e}")
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except HTTPException as e: 
+        raise e
     except Exception as e:
         logger.exception(f"Unexpected error responding to project Q&A session {request.session_id}.")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to respond to project Q&A: {e}")
 
-
-# --- New Member: Knowledge Retrieval Endpoints ---
-@app.post("/query/", response_model=schemas.ChatResponse, status_code=status.HTTP_200_OK)
-def answer_query(
-    request: schemas.ChatRequest,
-    retrieval_service: RetrievalService = Depends(get_retrieval_service)
-):
+@app.post("/transfer/document-qa/start-session/", response_model=schemas.DocumentQASessionStartResponse, status_code=status.HTTP_200_OK)
+def start_document_qa_session(
+    project_id: str,
+    document_id: str,
+    ingestion_service: IngestionService = Depends(get_ingestion_service)):
+    """
+    Initiate an interactive Q&A session for questions specifically generated from a document.
+    This fetches the oldest unanswered question for that document.
+    """
     try:
-        response = retrieval_service.answer_query(
-            project_id=request.project_id,
-            query=request.query,
-            chat_history=request.chat_history
-        )
+        response = ingestion_service.start_document_qa_session(project_id, document_id)
         return response
     except ValueError as e:
-        logger.error(f"Error answering query for project {request.project_id}: {e}")
+        logger.error(f"Error starting document Q&A session for project {project_id}, document {document_id}: {e}")
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except Exception as e:
-        logger.exception(f"Unexpected error answering query for project {request.project_id}.")
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to answer query: {e}")
+        logger.exception(f"Unexpected error starting document Q&A session for project {project_id}, document {document_id}.")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to start document Q&A session: {e}")
+
+@app.post("/transfer/document-qa/respond/", response_model=schemas.DocumentQAResponse, status_code=status.HTTP_200_OK)
+def respond_to_document_qa(
+    request: schemas.DocumentQARespondRequest,
+    ingestion_service: IngestionService = Depends(get_ingestion_service)):
+    """
+    Submit an answer to the current question in a document-specific Q&A session.
+    The answer is stored, and the next question (if any) is returned.
+    """
+    try:
+        response = ingestion_service.respond_to_document_qa(request.session_id, request.project_id, request.answer)
+        return response
+    except ValueError as e:
+        logger.error(f"Error responding to document Q&A session {request.session_id}: {e}")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except HTTPException as e: 
+        raise e
+    except Exception as e:
+        logger.exception(f"Unexpected error responding to document Q&A session {request.session_id}.")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to respond to document Q&A: {e}")
+
+# Knowledge Retrieval Endpoints (New Member)
+
+@app.post("/retrieve/answer/", response_model=schemas.ChatResponse, status_code=status.HTTP_200_OK) 
+def retrieve_answer(
+    request: schemas.RetrievalRequest,
+    retrieval_service: RetrievalService = Depends(get_retrieval_service)):
+    """
+    Retrieve an answer for a given query from the knowledge base of a specific project.
+    Can include chat history for conversational context.
+    """
+    try:
+        response = retrieval_service.answer_query(request.project_id, request.query, request.chat_history)
+        return response
+    except ValueError as e:
+        logger.error(f"Retrieval error for project {request.project_id}: {e}")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except Exception as e:
+        logger.exception(f"Unexpected retrieval error for project {request.project_id}.")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Retrieval failed: {e}")
+
+@app.post("/retrieve/relevant-chunks/", response_model=schemas.RelevantChunksResponse, status_code=status.HTTP_200_OK)
+def retrieve_relevant_chunks(
+    request: schemas.RetrievalRequest, 
+    retrieval_service: RetrievalService = Depends(get_retrieval_service)):
+    """
+    Retrieve raw relevant chunks of text from the knowledge base for a given query.
+    Useful for debugging or showing underlying data.
+    """
+    try:
+        chunks = retrieval_service.retrieve_relevant_chunks(request.project_id, request.query)
+        return schemas.RelevantChunksResponse(chunks=chunks)
+    except ValueError as e:
+        logger.error(f"Relevant chunks retrieval error for project {request.project_id}: {e}")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except Exception as e:
+        logger.exception(f"Unexpected relevant chunks retrieval error for project {request.project_id}.")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Relevant chunks retrieval failed: {e}")
+

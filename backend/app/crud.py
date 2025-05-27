@@ -1,23 +1,18 @@
-from sqlalchemy.orm import Session
-from app import models, schemas
-from typing import List, Optional, Dict
 import uuid
-import json
-from sqlalchemy import Integer, and_
+from typing import List, Optional, Dict
 
-def create_project(db: Session, project: schemas.ProjectCreate) -> models.Project:
-    # Generate UUID for the new project ID
-    db_project = models.Project(id=str(uuid.uuid4()), name=project.name)
-    db.add(db_project)
-    db.commit()
-    db.refresh(db_project)
-    return db_project
+from sqlalchemy.orm import Session
+from sqlalchemy import desc, or_, and_
 
-def get_project(db: Session, project_id: str) -> Optional[models.Project]:
+from app import models, schemas
+
+def get_project(db: Session, project_id: str):
+    """Retrieve a project by its ID."""
     return db.query(models.Project).filter(models.Project.id == project_id).first()
 
-def get_projects(db: Session, skip: int = 0, limit: int = 100) -> List[models.Project]:
-    return db.query(models.Project).offset(skip).limit(limit).all()
+def get_text_knowledge_entry_by_id(db: Session, entry_id: str):
+    """Retrieve a TextKnowledgeEntry by its ID."""
+    return db.query(models.TextKnowledgeEntry).filter(models.TextKnowledgeEntry.id == entry_id).first()
 
 def create_text_knowledge_entry(
     db: Session,
@@ -26,8 +21,12 @@ def create_text_knowledge_entry(
     answer: Optional[str] = None,
     document_knowledge_entry_id: Optional[str] = None,
     source_context: Optional[str] = None,
-    is_interactive_qa: bool = False
-) -> models.TextKnowledgeEntry:
+    is_interactive_qa: bool = False 
+):
+    """
+    Create a new TextKnowledgeEntry.
+    Can represent a raw text chunk, a Q&A pair, or an interactive Q&A question.
+    """
     db_entry = models.TextKnowledgeEntry(
         id=str(uuid.uuid4()),
         project_id=project_id,
@@ -42,48 +41,26 @@ def create_text_knowledge_entry(
     db.refresh(db_entry)
     return db_entry
 
-def get_text_knowledge_entry_by_id(db: Session, entry_id: str) -> Optional[models.TextKnowledgeEntry]:
-    return db.query(models.TextKnowledgeEntry).filter(models.TextKnowledgeEntry.id == entry_id).first()
-
-def update_text_knowledge_entry_answer(db: Session, entry_id: str, answer: str) -> Optional[models.TextKnowledgeEntry]:
-    db_entry = db.query(models.TextKnowledgeEntry).filter(models.TextKnowledgeEntry.id == entry_id).first()
+def update_text_knowledge_entry_answer(db: Session, entry_id: str, answer: str):
+    """Update the answer for an existing TextKnowledgeEntry."""
+    db_entry = get_text_knowledge_entry_by_id(db, entry_id)
     if db_entry:
         db_entry.answer = answer
-        db.add(db_entry)
         db.commit()
         db.refresh(db_entry)
     return db_entry
 
-def get_unanswered_questions_for_document(db: Session, project_id: str, document_id: str) -> List[models.TextKnowledgeEntry]:
-    """Retrieves TextKnowledgeEntry records that have a question but no answer, linked to a specific document."""
-    return db.query(models.TextKnowledgeEntry).filter(
-        and_(
-            models.TextKnowledgeEntry.project_id == project_id,
-            models.TextKnowledgeEntry.document_knowledge_entry_id == document_id,
-            models.TextKnowledgeEntry.question.isnot(None),
-            models.TextKnowledgeEntry.answer.is_(None)
-        )
-    ).order_by(models.TextKnowledgeEntry.created_at).all()
-
-def get_unanswered_project_questions(db: Session, project_id: str) -> List[models.TextKnowledgeEntry]:
-    """Retrieves TextKnowledgeEntry records that are general project questions (no document_id) and are unanswered."""
-    return db.query(models.TextKnowledgeEntry).filter(
-        and_(
-            models.TextKnowledgeEntry.project_id == project_id,
-            models.TextKnowledgeEntry.document_knowledge_entry_id.is_(None), # Not linked to a document
-            models.TextKnowledgeEntry.question.isnot(None),
-            models.TextKnowledgeEntry.answer.is_(None),
-            models.TextKnowledgeEntry.is_interactive_qa.is_(True) # Explicitly flagged as interactive Q&A
-        )
-    ).order_by(models.TextKnowledgeEntry.created_at).all()
-
+def get_document_knowledge_entry(db: Session, document_id: str):
+    """Retrieve a DocumentKnowledgeEntry by its ID."""
+    return db.query(models.DocumentKnowledgeEntry).filter(models.DocumentKnowledgeEntry.id == document_id).first()
 
 def create_document_knowledge_entry(
     db: Session,
     project_id: str,
     file_name: str,
-    file_path: Optional[str] = None 
-) -> models.DocumentKnowledgeEntry:
+    file_path: str 
+):
+    """Create a new DocumentKnowledgeEntry for an uploaded document."""
     db_entry = models.DocumentKnowledgeEntry(
         id=str(uuid.uuid4()),
         project_id=project_id,
@@ -95,79 +72,116 @@ def create_document_knowledge_entry(
     db.refresh(db_entry)
     return db_entry
 
-def get_document_knowledge_entry(db: Session, document_id: str) -> Optional[models.DocumentKnowledgeEntry]:
-    return db.query(models.DocumentKnowledgeEntry).filter(models.DocumentKnowledgeEntry.id == document_id).first()
 
-def get_text_knowledge_entries_by_document_id(db: Session, document_id: str) -> List[models.TextKnowledgeEntry]:
-    return db.query(models.TextKnowledgeEntry).filter(models.TextKnowledgeEntry.document_knowledge_entry_id == document_id).all()
+# Project Q&A Session CRUD operations
+def get_project_qa_session(db: Session, session_id: str) -> Optional[models.ProjectQASession]:
+    """Retrieve a project QA session by its ID."""
+    return db.query(models.ProjectQASession).filter(models.ProjectQASession.id == session_id).first()
 
-# CRUD for ProjectQASession
-def create_project_qa_session(db: Session, project_id: str, current_question_text_entry_id: Optional[str] = None) -> models.ProjectQASession:
+def create_project_qa_session(
+    db: Session,
+    project_id: str,
+    current_question_text_entry_id: Optional[str] = None,
+    current_question_index: int = 0
+) -> models.ProjectQASession:
+    """Create a new project QA session."""
     db_session = models.ProjectQASession(
         id=str(uuid.uuid4()),
         project_id=project_id,
-        current_question_index=0, # This index is for predefined questions
-        current_question_text_entry_id=current_question_text_entry_id, # Can be null if starting with predefined questions
         status="active",
-        qa_history=json.dumps([])
+        current_question_text_entry_id=current_question_text_entry_id,
+        current_question_index=current_question_index,
+        qa_history="[]"
     )
     db.add(db_session)
     db.commit()
     db.refresh(db_session)
     return db_session
-
-def get_project_qa_session(db: Session, session_id: str) -> Optional[models.ProjectQASession]:
-    return db.query(models.ProjectQASession).filter(models.ProjectQASession.id == session_id).first()
 
 def update_project_qa_session(
     db: Session,
     session: models.ProjectQASession,
-    current_question_index: Optional[int] = None,
-    current_question_text_entry_id: Optional[str] = None,
     status: Optional[str] = None,
-    qa_history: Optional[List[Dict]] = None
+    current_question_text_entry_id: Optional[str] = None,
+    current_question_index: Optional[int] = None,
+    qa_history: Optional[List[Dict[str, str]]] = None
 ) -> models.ProjectQASession:
-    if current_question_index is not None:
-        session.current_question_index = current_question_index
-    if current_question_text_entry_id is not None:
-        session.current_question_text_entry_id = current_question_text_entry_id
+    """Update an existing project QA session."""
     if status is not None:
         session.status = status
+    if current_question_text_entry_id is not None:
+        session.current_question_text_entry_id = current_question_text_entry_id
+    if current_question_index is not None:
+        session.current_question_index = current_question_index
     if qa_history is not None:
+        import json
         session.qa_history = json.dumps(qa_history)
-    db.add(session)
+
     db.commit()
     db.refresh(session)
     return session
 
-# CRUD for DocumentQASession
-def create_document_qa_session(db: Session, project_id: str, document_id: str, current_question_text_entry_id: Optional[str] = None) -> models.DocumentQASession:
+def get_unanswered_project_questions(db: Session, project_id: str) -> List[models.TextKnowledgeEntry]:
+    """
+    Get all unanswered questions related to a project (not tied to a specific document)
+    for interactive Q&A, ordered by creation time (oldest first).
+    """
+    return db.query(models.TextKnowledgeEntry).filter(
+        models.TextKnowledgeEntry.project_id == project_id,
+        models.TextKnowledgeEntry.document_knowledge_entry_id.is_(None), 
+        models.TextKnowledgeEntry.question.isnot(None),
+        models.TextKnowledgeEntry.answer.is_(None),
+        models.TextKnowledgeEntry.is_interactive_qa == True
+    ).order_by(models.TextKnowledgeEntry.created_at).all()
+
+# Document Q&A Session CRUD operations
+def get_document_qa_session(db: Session, session_id: str) -> Optional[models.DocumentQASession]:
+    """Retrieve a document QA session by its ID."""
+    return db.query(models.DocumentQASession).filter(models.DocumentQASession.id == session_id).first()
+
+def create_document_qa_session(
+    db: Session,
+    project_id: str,
+    document_id: str,
+    current_question_text_entry_id: Optional[str] = None
+) -> models.DocumentQASession:
+    """Create a new document QA session."""
     db_session = models.DocumentQASession(
         id=str(uuid.uuid4()),
         project_id=project_id,
         document_id=document_id,
-        current_question_text_entry_id=current_question_text_entry_id,
-        status="active" if current_question_text_entry_id else "no_questions",
+        status="active",
+        current_question_text_entry_id=current_question_text_entry_id
     )
     db.add(db_session)
     db.commit()
     db.refresh(db_session)
     return db_session
 
-def get_document_qa_session(db: Session, session_id: str) -> Optional[models.DocumentQASession]:
-    return db.query(models.DocumentQASession).filter(models.DocumentQASession.id == session_id).first()
-
 def update_document_qa_session(
     db: Session,
     session: models.DocumentQASession,
-    current_question_text_entry_id: Optional[str] = None,
-    status: Optional[str] = None
+    status: Optional[str] = None,
+    current_question_text_entry_id: Optional[str] = None
 ) -> models.DocumentQASession:
-    if current_question_text_entry_id is not None:
-        session.current_question_text_entry_id = current_question_text_entry_id
+    """Update an existing document QA session."""
     if status is not None:
         session.status = status
-    db.add(session)
+    if current_question_text_entry_id is not None:
+        session.current_question_text_entry_id = current_question_text_entry_id
     db.commit()
     db.refresh(session)
     return session
+
+def get_unanswered_questions_for_document(db: Session, project_id: str, document_id: str) -> List[models.TextKnowledgeEntry]:
+    """
+    Get all unanswered questions for a specific document, generated for interactive QA,
+    ordered by creation time (oldest first).
+    """
+    return db.query(models.TextKnowledgeEntry).filter(
+        models.TextKnowledgeEntry.project_id == project_id,
+        models.TextKnowledgeEntry.document_knowledge_entry_id == document_id,
+        models.TextKnowledgeEntry.question.isnot(None),
+        models.TextKnowledgeEntry.answer.is_(None),
+        models.TextKnowledgeEntry.is_interactive_qa == True
+    ).order_by(models.TextKnowledgeEntry.created_at).all()

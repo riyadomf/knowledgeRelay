@@ -1,4 +1,5 @@
 import os
+from typing import List, Dict
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
@@ -21,5 +22,8 @@ class Settings(BaseSettings):
     
     # Embedding model name (used by ChromaDB if not using OpenAI's embedding function)
     EMBEDDING_MODEL_NAME: str = "all-MiniLM-L6-v2" # Sentence-transformers model
+
+    # CORS settings (add this for frontend integration)
+    CORS_ORIGINS: List[str] = ["http://localhost", "http://localhost:3000"] # Example origins
 
 settings = Settings()
