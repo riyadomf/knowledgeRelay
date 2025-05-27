@@ -35,6 +35,63 @@ class IngestionService:
         self.db = db
         self.llm_service = LLMService()
 
+    def _generate_question_with_llm(self, project_id: str) -> Optional[str]:
+        """
+        Generates a new question using an LLM based on existing project knowledge.
+        This function should leverage your LLM API and potentially retrieve context
+        from your ChromaDB or relational database to inform the question generation.
+        Returns the generated question string or None if generation fails.
+        """
+        logger.info(f"Attempting to generate a new question for project {project_id} using LLM.")
+        try:
+            # Retrieve some existing knowledge to provide context to the LLM.
+            # This is crucial for the LLM to generate relevant questions.
+            existing_knowledge_entries = crud.get_recent_text_knowledge_entries(self.db, project_id, limit=5)
+            context_for_llm = ""
+            for entry in existing_knowledge_entries:
+                if entry.question and entry.answer:
+                    context_for_llm += f"Q: {entry.question}\nA: {entry.answer}\n"
+                elif entry.source_context:
+                    context_for_llm += f"Context: {entry.source_context}\n"
+
+            
+            qa_prompt_text = (
+               f"You are an AI assistant helping an experienced developer transfer project knowledge."
+               "  Your goal is to ask insightful, open-ended questions to extract critical information.  "
+               "Focus on areas like project purpose, architecture, key technologies, deployment, common issues, "
+                "team practices, and important contacts. Avoid asking questions that have already been covered. "
+                "If you think enough information has been gathered, you can suggest concluding the session. "
+               "Given the following knowledge about a project:\n{context_for_llm}\n"
+               "If you have no knowledge about the project. You can start with some basic questions like this"
+               "-- What is the primary purpose and mission of this project?",
+               "-- What are the key technologies, frameworks, and libraries used in this project?",
+               "-- Describe the overall architecture of the project (e.g., microservices, monolith, database choices).",
+               "-- What is the standard deployment process for this project? (e.g., CI/CD, manual steps, environments)",
+               "-- What are the most common pitfalls, tricky bugs, or unexpected behaviors new developers should be aware of?",
+               "-- Who are the key stakeholders or contact persons for different parts of the project (e.g., frontend, backend, database, infrastructure)?",
+               "-- Are there any specific team conventions, coding standards, or practices unique to this project?",
+               "-- Where can a new developer find important documentation, runbooks, or troubleshooting guides?",
+               "-- What are the major components or modules within the codebase, and what is their responsibility?",
+               "-- Is there anything else critical a new team member should know to get up to speed quickly?"
+               " List 5 important questions that a developer should be able to answer about this project. "
+               "Return them as a numbered list (e.g., 1. ..., 2. ..., etc.)."
+            )
+            
+
+            
+            # Replace with your actual LLM call
+            llm_response = self.llm_service.x(qa_prompt_text)
+
+
+            # Extract list from numbered response (basic example, improve as needed)
+            questions = [line.strip().split(". ", 1)[1] for line in llm_response.splitlines() if line.strip().startswith(tuple("123456789"))]
+            logger.info(f"LLM generated questions for project {project_id}: {questions}")
+            return questions
+        
+        except Exception as e:
+            logger.error(f"Error generating question with LLM for project {project_id}: {e}")
+            return None
+
     def ingest_static_qa(self, project_id: str, questions_answers: List[Dict[str, str]], document_knowledge_entry_id: Optional[str] = None):
         """
         Ingests static (bulk) Q&A pairs into the knowledge base.
@@ -234,30 +291,47 @@ class IngestionService:
         
         session = crud.create_project_qa_session(self.db, project_id) 
 
-        if session.current_question_index < len(INITIAL_PROJECT_QA_QUESTIONS): 
-            first_predefined_question = INITIAL_PROJECT_QA_QUESTIONS[session.current_question_index] 
-            logger.info(f"Started project Q&A session {session.id} for project {project_id} with predefined question {session.current_question_index}.")
-            return schemas.ProjectQASessionStartResponse(
-                session_id=session.id,
-                project_id=project_id,
-                question=first_predefined_question,
-                question_entry_id=None, 
-                is_complete=False,
-                message="Starting with predefined project questions."
-            )
+        # if session.current_question_index < len(INITIAL_PROJECT_QA_QUESTIONS): 
+        #     first_predefined_question = INITIAL_PROJECT_QA_QUESTIONS[session.current_question_index] 
+        #     logger.info(f"Started project Q&A session {session.id} for project {project_id} with predefined question {session.current_question_index}.")
+        #     return schemas.ProjectQASessionStartResponse(
+        #         session_id=session.id,
+        #         project_id=project_id,
+        #         question=first_predefined_question,
+        #         question_entry_id=None, 
+        #         is_complete=False,
+        #         message="Starting with predefined project questions."
+        #     )
         
         try:
-            llm_generated_question = self.llm_service.generate_static_qa_question(existing_qa=[]) 
-            new_qa_entry = crud.create_text_knowledge_entry(
-                db=self.db,
-                project_id=project_id,
-                question=llm_generated_question,
-                answer=None, 
-                source_context=None, 
-                is_interactive_qa=True 
-            )
+            new_questions = self._generate_question_with_llm(project_id) 
+            
+            if new_questions:
+                # Store the new question in TextKnowledgeEntry with a null answer
+                for idx, question in enumerate(new_questions):
+                    
+                    x = crud.create_text_knowledge_entry(
+                    db=self.db,
+                    project_id=project_id,
+                    question=question,
+                    answer=None,
+                    source_context=None,
+                    is_interactive_qa=True      
+                    )
+                    if idx == 0 :
+                        new_qa_entry = x
+                        
+                question_to_ask = new_questions[0]  # Return the first one for the session start
+                                
+            else:
+                logger.warning("Failed to generate any initial question for interactive Q&A.")
+                question_to_ask = "No questions available. Session complete."
+                is_complete = True
+                crud.update_project_qa_session(self.db, session, status="completed")
+            
+            
             crud.update_project_qa_session(self.db, session, current_question_text_entry_id=new_qa_entry.id, current_question_index=len(INITIAL_PROJECT_QA_QUESTIONS)) 
-            logger.info(f"Started project Q&A session {session.id} for project {project_id} with new LLM-generated question {new_qa_entry.id}.")
+            logger.info(f"Started project Q&A session {session.id} for project {project_id} with new LLM-generated question {question_to_ask}.")
             return schemas.ProjectQASessionStartResponse(
                 session_id=session.id,
                 project_id=project_id,

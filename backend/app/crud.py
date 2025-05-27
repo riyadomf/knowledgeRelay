@@ -148,3 +148,12 @@ def get_unanswered_questions_for_document(db: Session, project_id: str, document
         models.TextKnowledgeEntry.answer.is_(None),
         models.TextKnowledgeEntry.is_interactive_qa == True
     ).order_by(models.TextKnowledgeEntry.created_at).all()
+
+
+def get_recent_text_knowledge_entries(db: Session, project_id: str, limit: int = 5):
+    """
+    Retrieves recent text knowledge entries for a project to provide context to the LLM.
+    """
+    return db.query(models.TextKnowledgeEntry).filter(
+        models.TextKnowledgeEntry.project_id == project_id
+    ).order_by(models.TextKnowledgeEntry.created_at.desc()).limit(limit).all()

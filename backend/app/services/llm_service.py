@@ -26,6 +26,7 @@ class LLMService:
             return ChatOpenAI(
                 api_key=settings.OPENROUTER_API_KEY, 
                 model_name=settings.OPENROUTER_MODEL_NAME,
+                base_url=settings.OPENROUTER_BASE_URL,
                 temperature=0.7
             )
         elif settings.LLM_PROVIDER == "ollama":
@@ -53,6 +54,16 @@ class LLMService:
         
         chain = prompt_template | self.llm
         response = chain.invoke({"existing_qa_summary": qa_summary})
+        return response.content
+    
+    def x(self, prompt_text:str) -> str :
+        prompt_template = ChatPromptTemplate.from_messages([
+            ("human", "{user_input}")  # Define an input variable named 'user_input'
+        ])
+        chain = prompt_template | self.llm
+        
+
+        response = chain.invoke({"user_input": prompt_text})
         return response.content
 
     def generate_questions_from_document_chunk(self, chunk_content: str, num_questions: int = 3) -> List[str]:

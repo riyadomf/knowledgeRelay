@@ -7,6 +7,7 @@ class Settings(BaseSettings):
 
     DATABASE_URL: str = "sqlite:///./sql_app.db"
     VECTOR_DB_PATH: str = "./chroma_db"
+    OPENROUTER_BASE_URL: str = os.getenv("OPENROUTER_BASE_URL", "https://api.openrouter.ai/v1")
 
     OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
     OPENROUTER_API_KEY: str = os.getenv("OPENROUTER_API_KEY", "")
@@ -17,7 +18,7 @@ class Settings(BaseSettings):
     
     # Model names
     OPENAI_MODEL_NAME: str = "gpt-3.5-turbo"
-    OPENROUTER_MODEL_NAME: str = "mistralai/mistral-7b-instruct-v0.2" # Example Openrouter model
+    OPENROUTER_MODEL_NAME: str = os.getenv("OPENROUTER_MODEL_NAME") # Example Openrouter model # Example Openrouter model
     OLLAMA_MODEL_NAME: str = "llama3.2" # Example Ollama model
     
     # Embedding model name (used by ChromaDB if not using OpenAI's embedding function)
