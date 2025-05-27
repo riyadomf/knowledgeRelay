@@ -79,6 +79,6 @@ class RetrievalService:
         logger.info(f"Generated answer for query: '{query}' in project {project_id}.")
         return schemas.ChatResponse(
             project_id=project_id,
-            answer=final_answer_response.content,
+            answer=final_answer_response,
             source_documents=source_documents_info
         )

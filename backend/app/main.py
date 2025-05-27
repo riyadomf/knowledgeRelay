@@ -162,6 +162,49 @@ def generate_questions_from_document(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to generate questions from document: {e}")
 
 
+@app.post("/transfer/document-qa/start-session/", response_model=schemas.DocumentQASessionStartResponse, status_code=status.HTTP_200_OK)
+def start_document_qa_session(
+    project_id: str,
+    document_id: str,
+    ingestion_service: IngestionService = Depends(get_ingestion_service)):
+    """
+    Initiate an interactive Q&A session for questions specifically generated from a document.
+    This fetches the oldest unanswered question for that document.
+    """
+    try:
+        response = ingestion_service.start_document_qa_session(project_id, document_id)
+        return response
+    except ValueError as e:
+        logger.error(f"Error starting document Q&A session for project {project_id}, document {document_id}: {e}")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except Exception as e:
+        logger.exception(f"Unexpected error starting document Q&A session for project {project_id}, document {document_id}.")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to start document Q&A session: {e}")
+
+@app.post("/transfer/document-qa/respond/", response_model=schemas.DocumentQAResponse, status_code=status.HTTP_200_OK)
+def respond_to_document_qa(
+    request: schemas.DocumentQARespondRequest,
+    ingestion_service: IngestionService = Depends(get_ingestion_service)):
+    """
+    Submit an answer to the current question in a document-specific Q&A session.
+    The answer is stored, and the next question (if any) is returned.
+    """
+    try:
+        response = ingestion_service.respond_to_document_qa(request.session_id, request.project_id, request.answer)
+        return response
+    except ValueError as e:
+        logger.error(f"Error responding to document Q&A session {request.session_id}: {e}")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except HTTPException as e: 
+        raise e
+    except Exception as e:
+        logger.exception(f"Unexpected error responding to document Q&A session {request.session_id}.")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to respond to document Q&A: {e}")
+
+
+
+
+
 # Interactive Q&A Session Endpoints (Old Member)
 
 @app.post("/transfer/project-qa/start-session/", response_model=schemas.ProjectQASessionStartResponse, status_code=status.HTTP_200_OK)
@@ -201,45 +244,6 @@ def respond_to_project_qa(
     except Exception as e:
         logger.exception(f"Unexpected error responding to project Q&A session {request.session_id}.")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to respond to project Q&A: {e}")
-
-@app.post("/transfer/document-qa/start-session/", response_model=schemas.DocumentQASessionStartResponse, status_code=status.HTTP_200_OK)
-def start_document_qa_session(
-    project_id: str,
-    document_id: str,
-    ingestion_service: IngestionService = Depends(get_ingestion_service)):
-    """
-    Initiate an interactive Q&A session for questions specifically generated from a document.
-    This fetches the oldest unanswered question for that document.
-    """
-    try:
-        response = ingestion_service.start_document_qa_session(project_id, document_id)
-        return response
-    except ValueError as e:
-        logger.error(f"Error starting document Q&A session for project {project_id}, document {document_id}: {e}")
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-    except Exception as e:
-        logger.exception(f"Unexpected error starting document Q&A session for project {project_id}, document {document_id}.")
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to start document Q&A session: {e}")
-
-@app.post("/transfer/document-qa/respond/", response_model=schemas.DocumentQAResponse, status_code=status.HTTP_200_OK)
-def respond_to_document_qa(
-    request: schemas.DocumentQARespondRequest,
-    ingestion_service: IngestionService = Depends(get_ingestion_service)):
-    """
-    Submit an answer to the current question in a document-specific Q&A session.
-    The answer is stored, and the next question (if any) is returned.
-    """
-    try:
-        response = ingestion_service.respond_to_document_qa(request.session_id, request.project_id, request.answer)
-        return response
-    except ValueError as e:
-        logger.error(f"Error responding to document Q&A session {request.session_id}: {e}")
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-    except HTTPException as e: 
-        raise e
-    except Exception as e:
-        logger.exception(f"Unexpected error responding to document Q&A session {request.session_id}.")
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to respond to document Q&A: {e}")
 
 # Knowledge Retrieval Endpoints (New Member)
 
