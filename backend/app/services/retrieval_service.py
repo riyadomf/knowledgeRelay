@@ -53,14 +53,18 @@ class RetrievalService:
             metadata = retrieved_metadatas[i]
             lc_doc = Document(page_content=doc_content, metadata=metadata)
             retrieved_langchain_docs.append(lc_doc)
-
+        
+            logger.info(metadata)
+            
             source_documents_info.append(schemas.SourceDocument(
                 file_name=metadata.get("file_name", "Static Q&A" if metadata.get("type") == "static_qa" else "Unknown"),
+                file_path=metadata.get("source"),
                 question=metadata.get("question"),
-                context=metadata.get("source_context", doc_content), 
+                context=metadata.get("source_context"),
                 document_id=metadata.get("document_id"),
                 page_number=metadata.get("page_number")
             ))
+            logger.info(metadata)
         
         if not retrieved_langchain_docs:
             logger.warning(f"No relevant documents found for query: '{query}' in project {project_id}.")
@@ -76,9 +80,12 @@ class RetrievalService:
             "chat_history": lc_chat_history
         })
         
+        print(final_answer_response)
+        
         logger.info(f"Generated answer for query: '{query}' in project {project_id}.")
         return schemas.ChatResponse(
             project_id=project_id,
             answer=final_answer_response,
             source_documents=source_documents_info
         )
+        

@@ -9,6 +9,8 @@ class Settings(BaseSettings):
     VECTOR_DB_PATH: str = "./chroma_db"
     OPENROUTER_BASE_URL: str = os.getenv("OPENROUTER_BASE_URL", "https://api.openrouter.ai/v1")
 
+    OPENROUTER_BASE_URL: str = "https://openrouter.ai/api/v1"
+
     OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
     OPENROUTER_API_KEY: str = os.getenv("OPENROUTER_API_KEY", "")
     OPENROUTER_BASE_URL: str = os.getenv("OPENROUTER_BASE_URL", "https://api.openrouter.ai/v1")
@@ -27,5 +29,7 @@ class Settings(BaseSettings):
 
     # CORS settings (add this for frontend integration)
     CORS_ORIGINS: List[str] = ["http://localhost", "http://localhost:3000"] # Example origins
+    
+    TEMP_DIR: str = "/tmp/knowledge_relay_uploads"
 
 settings = Settings()
