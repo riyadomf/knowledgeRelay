@@ -9,6 +9,10 @@ import {
   HelpCircle,
   BookOpen,
 } from "lucide-react"; // Using lucide-react for icons
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import rehypeHighlight from "rehype-highlight";
+import "highlight.js/styles/github.css"; // Import syntax highlighting style
 
 // Base URL for your FastAPI backend
 const API_BASE_URL = "http://localhost:8000"; // Adjust if your backend is on a different port/host
@@ -278,108 +282,108 @@ function App() {
     }
   };
 
-const fetchNextDocQuestion = async () => {
-  if (!selectedProject || !uploadedDocument) {
-    showMessage("Project or document not selected.", true);
-    return;
-  }
-  setLoading(true);
-  try {
-    const response = await fetch(
-      `${API_BASE_URL}/transfer/document-qa/get-next-question/`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          project_id: selectedProject.id,
-          document_id: uploadedDocument.id,
-        }),
-      }
-    );
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(
-        errorData.detail || `HTTP error! status: ${response.status}`
+  const fetchNextDocQuestion = async () => {
+    if (!selectedProject || !uploadedDocument) {
+      showMessage("Project or document not selected.", true);
+      return;
+    }
+    setLoading(true);
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/transfer/document-qa/get-next-question/`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            project_id: selectedProject.id,
+            document_id: uploadedDocument.id,
+          }),
+        }
       );
-    }
-    const data = await response.json();
-    
-    if (data.question) {
-      setCurrentDocQuestion({
-        question: data.question,
-        question_entry_id: data.question_entry_id,
-        is_complete: false,
-        source_context: data.source_context // if provided by backend
-      });
-      showMessage("Next question loaded.");
-    } else {
-      // No more questions available
-      setCurrentDocQuestion({ is_complete: true });
-      showMessage(data.message || "All questions for this document have been answered.");
-    }
-  } catch (error) {
-    console.error("Error fetching next document question:", error);
-    showMessage(`Failed to fetch next question: ${error.message}`, true);
-  } finally {
-    setLoading(false);
-  }
-};
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(
+          errorData.detail || `HTTP error! status: ${response.status}`
+        );
+      }
+      const data = await response.json();
 
-const answerDocQuestion = async () => {
-  if (
-    !docQaAnswer.trim() ||
-    !currentDocQuestion ||
-    currentDocQuestion.is_complete
-  ) {
-    showMessage("Please provide an answer or no active question.", true);
-    return;
-  }
-  setLoading(true);
-  try {
-    // Add answered question to history
-    setDocQaHistory((prev) => [
-      ...prev,
-      {
-        question: currentDocQuestion.question,
-        answer: docQaAnswer,
-        source_context: currentDocQuestion.source_context,
-      },
-    ]);
+      if (data.question) {
+        setCurrentDocQuestion({
+          question: data.question,
+          question_entry_id: data.question_entry_id,
+          is_complete: false,
+          source_context: data.source_context, // if provided by backend
+        });
+        showMessage("Next question loaded.");
+      } else {
+        // No more questions available
+        setCurrentDocQuestion({ is_complete: true });
+        showMessage(
+          data.message || "All questions for this document have been answered."
+        );
+      }
+    } catch (error) {
+      console.error("Error fetching next document question:", error);
+      showMessage(`Failed to fetch next question: ${error.message}`, true);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    const response = await fetch(
-      `${API_BASE_URL}/transfer/document-qa/answer-question/`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          project_id: selectedProject.id,
-          question_entry_id: currentDocQuestion.question_entry_id,
+  const answerDocQuestion = async () => {
+    if (
+      !docQaAnswer.trim() ||
+      !currentDocQuestion ||
+      currentDocQuestion.is_complete
+    ) {
+      showMessage("Please provide an answer or no active question.", true);
+      return;
+    }
+    setLoading(true);
+    try {
+      // Add answered question to history
+      setDocQaHistory((prev) => [
+        ...prev,
+        {
+          question: currentDocQuestion.question,
           answer: docQaAnswer,
-        }),
-      }
-    );
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(
-        errorData.detail || `HTTP error! status: ${response.status}`
+          source_context: currentDocQuestion.source_context,
+        },
+      ]);
+
+      const response = await fetch(
+        `${API_BASE_URL}/transfer/document-qa/answer-question/`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            project_id: selectedProject.id,
+            question_entry_id: currentDocQuestion.question_entry_id,
+            answer: docQaAnswer,
+          }),
+        }
       );
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(
+          errorData.detail || `HTTP error! status: ${response.status}`
+        );
+      }
+      const data = await response.json();
+      setDocQaAnswer(""); // Clear input
+
+      showMessage(data.message || "Answer recorded successfully.");
+
+      // Always fetch the next question after successfully answering
+      await fetchNextDocQuestion();
+    } catch (error) {
+      console.error("Error answering document question:", error);
+      showMessage(`Failed to answer document question: ${error.message}`, true);
+    } finally {
+      setLoading(false);
     }
-    const data = await response.json();
-    setDocQaAnswer(""); // Clear input
-
-    showMessage(data.message || "Answer recorded successfully.");
-
-    // Always fetch the next question after successfully answering
-    await fetchNextDocQuestion();
-
-  } catch (error) {
-    console.error("Error answering document question:", error);
-    showMessage(`Failed to answer document question: ${error.message}`, true);
-  } finally {
-    setLoading(false);
-  }
-};
-
+  };
 
   // --- New Member: Conversational Q&A ---
   const askNewMemberQuery = async () => {
@@ -847,7 +851,14 @@ const answerDocQuestion = async () => {
               <p className="font-semibold text-sm mb-1">
                 {msg.role === "human" ? "You" : "AI"}
               </p>
-              <p className="text-gray-800">{msg.content}</p>
+
+              <div className="text-gray-800 text-left whitespace-pre-wrap">
+                <ReactMarkdown
+                  children={msg.content}
+                  remarkPlugins={[remarkGfm]}
+                  rehypePlugins={[rehypeHighlight]}
+                />
+              </div>
 
               {msg.sources && msg.sources.length > 0 && (
                 <div className="mt-2 text-xs text-gray-600 border-t border-gray-300 pt-2">
