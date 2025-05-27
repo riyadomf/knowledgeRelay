@@ -168,3 +168,15 @@ class Chunk(BaseModel):
 
 class RelevantChunksResponse(BaseModel):
     chunks: List[Chunk]
+    
+    
+class Source(BaseModel):
+    file_name: str = Field(description="The name of the source document.")
+    file_path: Optional[str] = Field(None, description="The URL or path to the source document, if available.")
+    context: Optional[str] = Field(None, description="The relevant snippet or context from the source document.")
+    document_id: Optional[str] = Field(None, description="Unique ID of the document.")
+    page_number: Optional[int] = Field(None, description="Page number within the document.")
+
+class AnswerWithSources(BaseModel):
+    answer: str = Field(description="The comprehensive answer to the user's query, formatted using Markdown.")
+    sources: List[Source] = Field(description="A list of source documents used to generate the answer.")
