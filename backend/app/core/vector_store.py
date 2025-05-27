@@ -1,7 +1,7 @@
 import chromadb
 from chromadb.utils import embedding_functions
 from app.config import settings
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Tuple
 import logging
 
 logger = logging.getLogger(__name__)

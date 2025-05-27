@@ -1,13 +1,12 @@
 from langchain_openai import ChatOpenAI
 from langchain_community.chat_models import ChatOllama
-from langchain_community.llms import OpenRouter
 from langchain_core.messages import HumanMessage, AIMessage, BaseMessage
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.runnables import RunnablePassthrough, RunnableLambda
 from langchain.chains import create_retrieval_chain
 from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain_core.documents import Document
-from typing import List, Tuple, Union
+from typing import List, Tuple, Union, Dict
 import logging
 
 from app.config import settings
@@ -28,7 +27,7 @@ class LLMService:
             # For chat models, it's often better to use ChatOpenAI with a custom base_url
             # if OpenRouter mimics OpenAI's API. Otherwise, use OpenRouter from langchain_community.llms
             # For simplicity, we'll use OpenRouter as a generic LLM here.
-            return OpenRouter(
+            return ChatOpenAI(
                 api_key=settings.OPENROUTER_API_KEY, 
                 model_name=settings.OPENROUTER_MODEL_NAME,
                 temperature=0.7
