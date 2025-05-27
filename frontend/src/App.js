@@ -9,7 +9,7 @@ function App() {
   const [projects, setProjects] = useState([]);
   const [selectedProject, setSelectedProject] = useState(null); // Stores project_id and name
   const [newProjectName, setNewProjectName] = useState('');
-  const [newProjectDescription, setNewProjectDescription] = useState('');
+  const [newProjectDescription, setNewProjectDescription] = '';
   const [qaType, setQaType] = useState(null); // 'project_qa' or 'document_qa'
   const [currentView, setCurrentView] = useState('role_selection'); // 'role_selection', 'project_selection', 'qa_selection', 'project_qa', 'document_qa', 'new_member_qa'
   const [errorMessage, setErrorMessage] = useState('');
