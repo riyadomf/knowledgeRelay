@@ -134,6 +134,20 @@ def get_unanswered_project_questions(db: Session, project_id: str) -> List[model
         models.TextKnowledgeEntry.is_interactive_qa == True
     ).order_by(models.TextKnowledgeEntry.created_at).all()
 
+
+def get_answered_text_knowledge_entries(db: Session, project_id: str) -> List[models.TextKnowledgeEntry]:
+    """
+    Get all unanswered questions related to a project (not tied to a specific document)
+    for interactive Q&A, ordered by creation time (oldest first).
+    """
+    return db.query(models.TextKnowledgeEntry).filter(
+        models.TextKnowledgeEntry.project_id == project_id,
+        models.TextKnowledgeEntry.document_knowledge_entry_id.is_(None), 
+        models.TextKnowledgeEntry.question.isnot(None),
+        models.TextKnowledgeEntry.answer.isnot(None),
+        models.TextKnowledgeEntry.is_interactive_qa == True
+    ).order_by(models.TextKnowledgeEntry.created_at).all()
+
 # Document Q&A Session CRUD operations removed
 
 def get_unanswered_questions_for_document(db: Session, project_id: str, document_id: str) -> List[models.TextKnowledgeEntry]:
