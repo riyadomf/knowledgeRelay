@@ -1,6 +1,9 @@
 import logging
 import uuid 
 from typing import List, Dict, Union
+import json
+from fastapi import Form
+
 
 from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
@@ -184,14 +187,17 @@ def start_project_qa_session(
 
 @app.post("/transfer/project-qa/respond/", response_model=schemas.ProjectQAResponse, status_code=status.HTTP_200_OK)
 def respond_to_project_qa(
-    request: schemas.ProjectQARespondRequest,
+    session_id: str = Form(...),
+    project_id: str = Form(...),
+    answer: str = Form(...),
+    # request: schemas.ProjectQARespondRequest,
     ingestion_service: IngestionService = Depends(get_ingestion_service)):
     """
     Submit an answer to the current question in a project-wide Q&A session.
     The answer is stored, and the next question (if any) is returned.
     """
     try:
-        response = ingestion_service.respond_to_project_qa(request.session_id, request.project_id, request.answer)
+        response = ingestion_service.respond_to_project_qa(session_id, project_id, answer)
         return response
     except ValueError as e:
         logger.error(f"Error responding to project Q&A session {request.session_id}: {e}")
