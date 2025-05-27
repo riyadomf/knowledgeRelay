@@ -37,6 +37,7 @@ class IngestionService:
         self.db = db
         self.llm_service = LLMService()
 
+
     def _generate_question_with_llm(self, project_id: str) -> Optional[str]:
         """
         Generates a new question using an LLM based on existing project knowledge.
@@ -48,7 +49,7 @@ class IngestionService:
         try:
             # Retrieve some existing knowledge to provide context to the LLM.
             # This is crucial for the LLM to generate relevant questions.
-            existing_knowledge_entries = crud.get_recent_text_knowledge_entries(self.db, project_id, limit=5)
+            existing_knowledge_entries = crud.get_answered_text_knowledge_entries(self.db, project_id)
             context_for_llm = ""
             for entry in existing_knowledge_entries:
                 if entry.question and entry.answer:
