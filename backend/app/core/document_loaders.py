@@ -22,3 +22,4 @@ def load_document(file_path: str, file_type: str) -> List[Document]:
     except Exception as e:
         logger.error(f"Error loading document {file_path}: {e}")
         raise
+

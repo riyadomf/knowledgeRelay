@@ -23,10 +23,6 @@ class LLMService:
             return ChatOpenAI(api_key=settings.OPENAI_API_KEY, model=settings.OPENAI_MODEL_NAME, temperature=0.7)
         elif settings.LLM_PROVIDER == "openrouter":
             logger.info(f"Initializing OpenRouter with model: {settings.OPENROUTER_MODEL_NAME}")
-            # OpenRouter can be used like OpenAI models with a custom base_url
-            # For chat models, it's often better to use ChatOpenAI with a custom base_url
-            # if OpenRouter mimics OpenAI's API. Otherwise, use OpenRouter from langchain_community.llms
-            # For simplicity, we'll use OpenRouter as a generic LLM here.
             return ChatOpenAI(
                 api_key=settings.OPENROUTER_API_KEY, 
                 model_name=settings.OPENROUTER_MODEL_NAME,
@@ -59,25 +55,26 @@ class LLMService:
         response = chain.invoke({"existing_qa_summary": qa_summary})
         return response.content
 
-    def generate_questions_from_document_chunk(self, chunk_content: str) -> List[str]:
+    def generate_questions_from_document_chunk(self, chunk_content: str, num_questions: int = 3) -> List[str]:
         """
-        Generates potential questions based on a specific document chunk.
+        Generates a specified number of questions based on a specific document chunk.
         """
         prompt_template = ChatPromptTemplate.from_messages([
             ("system", 
              "You are an AI assistant helping to extract knowledge from a document. "
-             "Read the following text chunk and identify 2-3 key pieces of information "
-             "that an incoming team member might need to know. Formulate these as clear, "
-             "concise questions that an experienced developer could answer based on this chunk. "
+             "Read the following text chunk and identify key pieces of information "
+             f"that an incoming team member might need to know. Formulate these as clear, "
+             f"concise questions (aim for {num_questions} questions). "
              "Do not answer the questions yourself. Just provide the questions, one per line."),
-            ("human", "Text chunk:\n{chunk_content}\n\nWhat are 2-3 important questions based on this text?")
+            ("human", "Text chunk:\n{chunk_content}\n\nWhat are important questions based on this text?")
         ])
         
         chain = prompt_template | self.llm
         response = chain.invoke({"chunk_content": chunk_content})
         # Parse response into a list of questions (assuming one per line)
         questions = [q.strip() for q in response.content.split('\n') if q.strip()]
-        return questions
+        return questions[:num_questions] # Return up to num_questions
+
 
     def get_retrieval_qa_chain(self) -> RunnablePassthrough:
         """
@@ -122,5 +119,4 @@ class LLMService:
         # This chain will combine documents and generate the final answer
         document_qa_chain = create_stuff_documents_chain(self.llm, qa_prompt)
 
-        # The full RAG chain will be constructed in retrieval_service
         return document_qa_chain, contextualize_q_chain

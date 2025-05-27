@@ -10,11 +10,12 @@ import os
 import uuid
 import json
 import logging
+from fastapi import HTTPException # For explicit HTTP exceptions
 
 logger = logging.getLogger(__name__)
 
-# Predefined initial questions for interactive Q&A
-INITIAL_INTERACTIVE_QA_QUESTIONS = [
+# Predefined initial questions for project-wide interactive Q&A
+INITIAL_PROJECT_QA_QUESTIONS = [ 
     "What is the primary purpose and mission of this project?",
     "What are the key technologies, frameworks, and libraries used in this project?",
     "Describe the overall architecture of the project (e.g., microservices, monolith, database choices).",
@@ -32,7 +33,11 @@ class IngestionService:
         self.db = db
         self.llm_service = LLMService()
 
-    def ingest_static_qa(self, project_id: str, questions_answers: List[Dict[str, str]], is_interactive_qa: bool = False, document_knowledge_entry_id: Optional[str] = None): # Added document_knowledge_entry_id
+    def ingest_static_qa(self, project_id: str, questions_answers: List[Dict[str, str]], document_knowledge_entry_id: Optional[str] = None):
+        """
+        Ingests static (bulk) Q&A pairs into the knowledge base.
+        Can be general project Q&A or linked to a specific document.
+        """
         project = crud.get_project(self.db, project_id)
         if not project:
             logger.error(f"Project with ID {project_id} not found for static Q&A ingestion.")
@@ -56,23 +61,28 @@ class IngestionService:
                 project_id=project_id,
                 question=question,
                 answer=answer,
-                document_knowledge_entry_id=document_knowledge_entry_id, # Pass document_knowledge_entry_id
+                document_knowledge_entry_id=document_knowledge_entry_id,
                 source_context=answer, # For static Q&A, the answer itself is the context
-                is_interactive_qa=is_interactive_qa
+                is_interactive_qa=False 
             )
             
             # Prepare for vector DB ingestion
-            documents_to_add.append(answer) # Embed the answer for retrieval
-            metadata = { # Build metadata dictionary
+            documents_to_add.append(answer) 
+            metadata = {
                 "type": "static_qa",
                 "project_id": project_id,
                 "question": question,
                 "answer": answer,
                 "source_context": answer
             }
-            if document_knowledge_entry_id: # Add document_id if provided
+            if document_knowledge_entry_id:
                 metadata["document_id"] = document_knowledge_entry_id
-                metadata["file_name"] = crud.get_document_knowledge_entry(self.db, document_knowledge_entry_id).file_name if crud.get_document_knowledge_entry(self.db, document_knowledge_entry_id) else "Unknown Document"
+                doc_entry = crud.get_document_knowledge_entry(self.db, document_knowledge_entry_id)
+                if doc_entry:
+                    metadata["file_name"] = doc_entry.file_name
+                else:
+                    logger.warning(f"Document entry with ID {document_knowledge_entry_id} not found for metadata.")
+                    metadata["file_name"] = "Unknown Document"
             metadatas_to_add.append(metadata)
             ids_to_add.append(f"static_qa_{uuid.uuid4()}")
 
@@ -88,7 +98,6 @@ class IngestionService:
             logger.error(f"Project with ID {project_id} not found for document ingestion.")
             raise ValueError(f"Project with ID {project_id} not found.")
 
-        # Save file temporarily for processing (in a real app, use persistent storage)
         temp_dir = "/tmp/knowledge_relay_uploads"
         os.makedirs(temp_dir, exist_ok=True)
         temp_file_path = os.path.join(temp_dir, f"{uuid.uuid4()}_{file_name}")
@@ -96,59 +105,55 @@ class IngestionService:
             f.write(file)
         logger.info(f"Temporarily saved uploaded file to: {temp_file_path}")
 
-        # Load and split document
         loaded_documents = load_document(temp_file_path, file_type)
         split_docs = split_documents(loaded_documents)
 
-        # Create a document entry in the relational DB
         document_db_entry = crud.create_document_knowledge_entry(
             db=self.db,
             project_id=project_id,
             file_name=file_name,
-            file_path=temp_file_path # Store temp path for now, or a more permanent path
+            file_path=temp_file_path
         )
         logger.info(f"Created document entry in DB: {document_db_entry.id}")
         
-        # Prepare for ChromaDB ingestion and relational DB chunk storage
         texts_for_chroma = []
         metadatas_for_chroma = []
         ids_for_chroma = []
 
         for i, doc_chunk in enumerate(split_docs):
-            # Store chunk in relational DB
+            # Store chunk content as a TextKnowledgeEntry
             crud.create_text_knowledge_entry(
                 db=self.db,
                 project_id=project_id,
                 document_knowledge_entry_id=document_db_entry.id,
-                answer=doc_chunk.page_content, # Store chunk content as answer
-                source_context=doc_chunk.page_content
+                answer=doc_chunk.page_content, 
+                source_context=doc_chunk.page_content, 
+                is_interactive_qa=False 
             )
 
-            # Prepare for ChromaDB
+            # Prepare for ChromaDB: Embed the chunk content
             metadata = {
                 "project_id": project_id,
                 "document_id": document_db_entry.id,
                 "file_name": file_name,
                 "type": "document_chunk",
-                "source_context": doc_chunk.page_content # Store chunk itself as source context
+                "source_context": doc_chunk.page_content
             }
             if 'page' in doc_chunk.metadata:
                 metadata['page_number'] = doc_chunk.metadata['page']
-            if 'source' in doc_chunk.metadata: # e.g., for markdown files
+            if 'source' in doc_chunk.metadata:
                 metadata['source'] = doc_chunk.metadata['source']
             
             texts_for_chroma.append(doc_chunk.page_content)
             metadatas_for_chroma.append(metadata)
             ids_for_chroma.append(f"doc_chunk_{document_db_entry.id}_{i}")
 
-        # Ingest into ChromaDB
         chroma_manager = ChromaDBManager(project_id)
         if texts_for_chroma:
             chroma_manager.add_documents(texts_for_chroma, metadatas_for_chroma, ids_for_chroma)
         else:
             logger.warning(f"No text chunks extracted from {file_name} for project {project_id}.")
 
-        # Clean up temporary file
         os.remove(temp_file_path)
         logger.info(f"Cleaned up temporary file: {temp_file_path}")
 
@@ -159,121 +164,404 @@ class IngestionService:
             document_id=document_db_entry.id
         )
 
-    def start_interactive_qa_session(self, project_id: str) -> schemas.InteractiveQASessionStartResponse:
-        project = crud.get_project(self.db, project_id)
-        if not project:
-            logger.error(f"Project with ID {project_id} not found for starting interactive Q&A.")
-            raise ValueError(f"Project with ID {project_id} not found.")
-
-        # Create a new session
-        session = crud.create_interactive_qa_session(self.db, project_id)
-        
-        # Get the first question from the predefined list
-        if INITIAL_INTERACTIVE_QA_QUESTIONS:
-            first_question = INITIAL_INTERACTIVE_QA_QUESTIONS[0]
-            crud.update_interactive_qa_session(self.db, session, current_question_index=0)
-            logger.info(f"Started interactive Q&A session {session.id} for project {project_id}.")
-            return schemas.InteractiveQASessionStartResponse(
-                session_id=session.id,
-                project_id=project_id,
-                question=first_question,
-                is_complete=False
-            )
-        else:
-            logger.warning("No initial questions defined for interactive Q&A.")
-            return schemas.InteractiveQASessionStartResponse(
-                session_id=session.id,
-                project_id=project_id,
-                question="No questions available. Session complete.",
-                is_complete=True
-            )
-
-    def respond_to_interactive_qa(self, session_id: str, project_id: str, answer: str) -> schemas.InteractiveQAResponse:
-        session = crud.get_interactive_qa_session(self.db, session_id)
-        if not session or session.project_id != project_id:
-            logger.error(f"Interactive Q&A session {session_id} not found or does not belong to project {project_id}.")
-            raise ValueError("Interactive Q&A session not found or invalid for this project.")
-        
-        if session.status == "completed":
-            logger.info(f"Interactive Q&A session {session.id} is already completed.")
-            return schemas.InteractiveQAResponse(
-                session_id=session.id,
-                project_id=project_id,
-                next_question=None,
-                is_complete=True,
-                message="Session already completed."
-            )
-
-        qa_history_list = json.loads(session.qa_history)
-        current_question_index = session.current_question_index
-
-        if current_question_index < len(INITIAL_INTERACTIVE_QA_QUESTIONS):
-            current_question = INITIAL_INTERACTIVE_QA_QUESTIONS[current_question_index]
-            
-            # Store the Q&A pair as a TextKnowledgeEntry
-            self.ingest_static_qa(
-                project_id=project_id,
-                questions_answers=[{"question": current_question, "answer": answer}],
-                is_interactive_qa=True
-            )
-            
-            # Update session history
-            qa_history_list.append({"question": current_question, "answer": answer})
-            
-            next_question_index = current_question_index + 1
-            if next_question_index < len(INITIAL_INTERACTIVE_QA_QUESTIONS):
-                next_question = INITIAL_INTERACTIVE_QA_QUESTIONS[next_question_index]
-                crud.update_interactive_qa_session(self.db, session, current_question_index=next_question_index, qa_history=qa_history_list)
-                logger.info(f"Session {session.id}: Answered Q{current_question_index}, next Q{next_question_index}.")
-                return schemas.InteractiveQAResponse(
-                    session_id=session.id,
-                    project_id=project_id,
-                    next_question=next_question,
-                    is_complete=False,
-                    message="Answer recorded. Here's the next question."
-                )
-            else:
-                crud.update_interactive_qa_session(self.db, session, status="completed", qa_history=qa_history_list)
-                logger.info(f"Interactive Q&A session {session.id} completed.")
-                return schemas.InteractiveQAResponse(
-                    session_id=session.id,
-                    project_id=project_id,
-                    next_question=None,
-                    is_complete=True,
-                    message="All predefined questions answered. Session completed."
-                )
-        else:
-            logger.warning(f"Session {session.id}: No more questions expected. Session status: {session.status}.")
-            return schemas.InteractiveQAResponse(
-                session_id=session.id,
-                project_id=project_id,
-                next_question=None,
-                is_complete=True,
-                message="No more questions available for this session."
-            )
-
-    def generate_questions_from_document(self, project_id: str, document_id: str) -> schemas.DocumentQAGenerateQuestionsResponse:
+    def generate_questions_from_document(self, project_id: str, document_id: str, num_questions_per_chunk: int = 2, max_total_questions: int = 10) -> schemas.DocumentQAGenerateQuestionsResponse:
+        """
+        Generates questions from a document's content and stores them as unanswered
+        TextKnowledgeEntry records, returning their IDs. Aims for a total number of questions.
+        """
         document_entry = crud.get_document_knowledge_entry(self.db, document_id)
         if not document_entry or document_entry.project_id != project_id:
             logger.error(f"Document {document_id} not found or does not belong to project {project_id}.")
             raise ValueError("Document not found or invalid for this project.")
 
-        # Retrieve text chunks associated with this document
         text_chunks = crud.get_text_knowledge_entries_by_document_id(self.db, document_id)
         
-        suggested_questions = []
-        # For simplicity, generate questions from the first few chunks or a sample
-        # In a real app, you might sample chunks more intelligently or limit the number of LLM calls
-        chunks_to_process = text_chunks[:3] # Process up to first 3 chunks for hackathon
-
-        for chunk_entry in chunks_to_process:
-            questions = self.llm_service.generate_questions_from_document_chunk(chunk_entry.answer) # 'answer' holds the chunk content
-            suggested_questions.extend(questions)
+        generated_question_entry_ids = []
         
-        logger.info(f"Generated {len(suggested_questions)} questions from document {document_id}.")
+        # Iterate over all chunks to generate questions, limiting total questions
+        for chunk_entry in text_chunks:
+            if len(generated_question_entry_ids) >= max_total_questions:
+                break # Stop if we've generated enough questions
+            
+            questions = self.llm_service.generate_questions_from_document_chunk(chunk_entry.answer, num_questions=num_questions_per_chunk)
+            
+            for question_text in questions:
+                if len(generated_question_entry_ids) >= max_total_questions:
+                    break
+                # Store each generated question as a new TextKnowledgeEntry with no answer yet
+                new_qa_entry = crud.create_text_knowledge_entry(
+                    db=self.db,
+                    project_id=project_id,
+                    document_knowledge_entry_id=document_id,
+                    question=question_text,
+                    answer=None, # Initially unanswered
+                    source_context=chunk_entry.answer, # Context from which question was generated
+                    is_interactive_qa=True # Part of interactive Q&A, but document-specific
+                )
+                generated_question_entry_ids.append(new_qa_entry.id)
+        
+        logger.info(f"Generated {len(generated_question_entry_ids)} questions from document {document_id} and stored them as unanswered entries.")
         return schemas.DocumentQAGenerateQuestionsResponse(
             project_id=project_id,
             document_id=document_id,
-            suggested_questions=list(set(suggested_questions)), # Remove duplicates
-            message="Suggested questions generated from document content."
+            question_entry_ids=generated_question_entry_ids,
+            message=f"Generated {len(generated_question_entry_ids)} suggested questions from document content and stored for answering."
         )
+
+    def start_project_qa_session(self, project_id: str) -> schemas.ProjectQASessionStartResponse: 
+        """
+        Starts a project-wide interactive Q&A session. Prioritizes unanswered questions
+        from DB, then predefined, then new LLM-generated.
+        """
+        project = crud.get_project(self.db, project_id)
+        if not project:
+            logger.error(f"Project with ID {project_id} not found for starting project Q&A.")
+            raise ValueError(f"Project with ID {project_id} not found.")
+
+        # 1. Check for existing unanswered questions in DB
+        unanswered_db_questions = crud.get_unanswered_project_questions(self.db, project_id)
+        if unanswered_db_questions:
+            first_question_entry = unanswered_db_questions[0]
+            session = crud.create_project_qa_session(self.db, project_id, first_question_entry.id)
+            logger.info(f"Started project Q&A session {session.id} for project {project_id} with existing unanswered question {first_question_entry.id}.")
+            return schemas.ProjectQASessionStartResponse(
+                session_id=session.id,
+                project_id=project_id,
+                question=first_question_entry.question,
+                question_entry_id=first_question_entry.id,
+                is_complete=False,
+                message="Continuing with existing unanswered project questions."
+            )
+        
+        # 2. If no unanswered DB questions, check predefined questions
+        # This will create a session without an initial current_question_text_entry_id
+        # and rely on current_question_index for predefined questions.
+        session = crud.create_project_qa_session(self.db, project_id) 
+
+        if session.current_question_index < len(INITIAL_PROJECT_QA_QUESTIONS): 
+            first_predefined_question = INITIAL_PROJECT_QA_QUESTIONS[session.current_question_index] 
+            # No text_entry_id for predefined questions initially as they are not in TextKnowledgeEntry yet
+            logger.info(f"Started project Q&A session {session.id} for project {project_id} with predefined question {session.current_question_index}.")
+            return schemas.ProjectQASessionStartResponse(
+                session_id=session.id,
+                project_id=project_id,
+                question=first_predefined_question,
+                question_entry_id=None, # For predefined, it's not a TextKnowledgeEntry yet
+                is_complete=False,
+                message="Starting with predefined project questions."
+            )
+        
+        # 3. If all predefined questions exhausted and no unanswered DB questions, generate a new one
+        try:
+            # Pass empty list for existing_qa to start fresh LLM generation
+            llm_generated_question = self.llm_service.generate_static_qa_question(existing_qa=[]) 
+            new_qa_entry = crud.create_text_knowledge_entry(
+                db=self.db,
+                project_id=project_id,
+                question=llm_generated_question,
+                answer=None, 
+                source_context=None, # No specific source context for LLM generated
+                is_interactive_qa=True 
+            )
+            # Update the session to point to this newly generated question
+            crud.update_project_qa_session(self.db, session, current_question_text_entry_id=new_qa_entry.id, current_question_index=len(INITIAL_PROJECT_QA_QUESTIONS)) # Set index beyond predefined
+            logger.info(f"Started project Q&A session {session.id} for project {project_id} with new LLM-generated question {new_qa_entry.id}.")
+            return schemas.ProjectQASessionStartResponse(
+                session_id=session.id,
+                project_id=project_id,
+                question=new_qa_entry.question,
+                question_entry_id=new_qa_entry.id,
+                is_complete=False,
+                message="Generating new project questions."
+            )
+        except Exception as e:
+            logger.error(f"Failed to generate initial LLM question for project {project_id}: {e}")
+            # Fallback if LLM fails, mark session complete
+            crud.update_project_qa_session(self.db, session, status="completed")
+            return schemas.ProjectQASessionStartResponse(
+                session_id=session.id,
+                project_id=project_id,
+                question="No questions available and failed to generate new ones. Session complete.",
+                question_entry_id=None,
+                is_complete=True,
+                message="Failed to start session due to LLM error."
+            )
+
+    def respond_to_project_qa(self, session_id: str, project_id: str, answer: str) -> schemas.ProjectQAResponse: 
+        """
+        Handles old member's answers in a project-wide interactive Q&A session.
+        Updates the answer in the corresponding TextKnowledgeEntry.
+        """
+        session = crud.get_project_qa_session(self.db, session_id) 
+        if not session or session.project_id != project_id or session.status == "completed":
+            logger.error(f"Project Q&A session {session_id} not found, invalid for project {project_id}, or already completed.")
+            raise HTTPException(status_code=400, detail="Project Q&A session not found, invalid, or already completed.")
+        
+        qa_history_list = json.loads(session.qa_history)
+        current_question = None
+        current_question_entry_id = session.current_question_text_entry_id
+
+        # Determine the current question based on session state
+        if current_question_entry_id:
+            # If we're answering an LLM-generated or previously existing unanswered question
+            current_question_entry = crud.get_text_knowledge_entry_by_id(self.db, current_question_entry_id)
+            if not current_question_entry:
+                logger.error(f"TextKnowledgeEntry {current_question_entry_id} not found for project Q&A session {session_id}.")
+                raise HTTPException(status_code=400, detail="Current question entry not found.")
+            current_question = current_question_entry.question
+            
+            # Update the answer in the existing TextKnowledgeEntry
+            crud.update_text_knowledge_entry_answer(self.db, current_question_entry_id, answer)
+            logger.info(f"Updated answer for TextKnowledgeEntry {current_question_entry_id}.")
+            
+            # Ingest this Q&A into ChromaDB for retrieval
+            chroma_manager = ChromaDBManager(project_id)
+            chroma_manager.add_documents(
+                documents=[answer],
+                metadatas=[{
+                    "type": "project_qa",
+                    "project_id": project_id,
+                    "question": current_question,
+                    "answer": answer,
+                    "source_context": answer
+                }],
+                ids=[f"project_qa_{current_question_entry_id}"] # Use entry ID for Chroma
+            )
+
+        elif session.current_question_index < len(INITIAL_PROJECT_QA_QUESTIONS):
+            # If we're answering a predefined question
+            current_question = INITIAL_PROJECT_QA_QUESTIONS[session.current_question_index]
+            
+            # For predefined questions, create a new TextKnowledgeEntry upon answering
+            answered_qa_entry = crud.create_text_knowledge_entry(
+                db=self.db,
+                project_id=project_id,
+                question=current_question,
+                answer=answer,
+                source_context=answer,
+                is_interactive_qa=True
+            )
+            # This is the ID for the *newly created* entry, so ChromaDB will use this
+            current_question_entry_id = answered_qa_entry.id 
+
+            # Ingest this Q&A into ChromaDB for retrieval
+            chroma_manager = ChromaDBManager(project_id)
+            chroma_manager.add_documents(
+                documents=[answer],
+                metadatas=[{
+                    "type": "project_qa",
+                    "project_id": project_id,
+                    "question": current_question,
+                    "answer": answer,
+                    "source_context": answer
+                }],
+                ids=[f"project_qa_{current_question_entry_id}"]
+            )
+        else:
+            logger.warning(f"Session {session_id}: No current question to answer or index out of bounds. Status: {session.status}.")
+            raise HTTPException(status_code=400, detail="No current question to answer or session state invalid.")
+
+        if current_question:
+            qa_history_list.append({"question": current_question, "answer": answer})
+        
+        next_question_text = None
+        next_question_entry_id = None
+        session_is_complete = False
+
+        # Find the next question: Prioritize existing unanswered questions, then predefined, then LLM-generated
+        unanswered_db_questions = crud.get_unanswered_project_questions(self.db, project_id)
+        if unanswered_db_questions:
+            # Filter out the current question if it's still in the list (shouldn't be if updated)
+            remaining_unanswered = [q for q in unanswered_db_questions if q.id != current_question_entry_id]
+            if remaining_unanswered:
+                next_question_entry = remaining_unanswered[0]
+                next_question_text = next_question_entry.question
+                next_question_entry_id = next_question_entry.id
+                crud.update_project_qa_session(self.db, session, current_question_text_entry_id=next_question_entry.id, qa_history=qa_history_list)
+                logger.info(f"Session {session.id}: Next Q (DB) {next_question_entry.id}.")
+            else: # All DB questions answered, move to predefined if not done
+                next_predefined_index = session.current_question_index + 1
+                if next_predefined_index < len(INITIAL_PROJECT_QA_QUESTIONS):
+                    next_question_text = INITIAL_PROJECT_QA_QUESTIONS[next_predefined_index]
+                    crud.update_project_qa_session(self.db, session, current_question_index=next_predefined_index, current_question_text_entry_id=None, qa_history=qa_history_list)
+                    logger.info(f"Session {session.id}: Next Q (Predefined) {next_predefined_index}.")
+                else: # Predefined exhausted, generate new LLM question
+                    try:
+                        llm_generated_question = self.llm_service.generate_static_qa_question(existing_qa=qa_history_list)
+                        new_qa_entry = crud.create_text_knowledge_entry(
+                            db=self.db,
+                            project_id=project_id,
+                            question=llm_generated_question,
+                            answer=None,
+                            source_context=None,
+                            is_interactive_qa=True
+                        )
+                        next_question_text = new_qa_entry.question
+                        next_question_entry_id = new_qa_entry.id
+                        crud.update_project_qa_session(self.db, session, current_question_index=next_predefined_index, current_question_text_entry_id=new_qa_entry.id, qa_history=qa_history_list)
+                        logger.info(f"Session {session.id}: Next Q (LLM Generated) {new_qa_entry.id}.")
+                    except Exception as e:
+                        logger.error(f"Failed to generate next LLM question for project {project_id}: {e}")
+                        session_is_complete = True # Mark complete if LLM fails to generate
+        else: # If no DB questions found at the start of next search, check predefined
+            next_predefined_index = session.current_question_index + 1
+            if next_predefined_index < len(INITIAL_PROJECT_QA_QUESTIONS):
+                next_question_text = INITIAL_PROJECT_QA_QUESTIONS[next_predefined_index]
+                crud.update_project_qa_session(self.db, session, current_question_index=next_predefined_index, current_question_text_entry_id=None, qa_history=qa_history_list)
+                logger.info(f"Session {session.id}: Next Q (Predefined) {next_predefined_index}.")
+            else: # Predefined exhausted, generate new LLM question
+                try:
+                    llm_generated_question = self.llm_service.generate_static_qa_question(existing_qa=qa_history_list)
+                    new_qa_entry = crud.create_text_knowledge_entry(
+                        db=self.db,
+                        project_id=project_id,
+                        question=llm_generated_question,
+                        answer=None,
+                        source_context=None,
+                        is_interactive_qa=True
+                    )
+                    next_question_text = new_qa_entry.question
+                    next_question_entry_id = new_qa_entry.id
+                    crud.update_project_qa_session(self.db, session, current_question_index=next_predefined_index, current_question_text_entry_id=new_qa_entry.id, qa_history=qa_history_list)
+                    logger.info(f"Session {session.id}: Next Q (LLM Generated) {new_qa_entry.id}.")
+                except Exception as e:
+                    logger.error(f"Failed to generate next LLM question for project {project_id}: {e}")
+                    session_is_complete = True # Mark complete if LLM fails to generate
+        
+        if not next_question_text and not session_is_complete:
+            session_is_complete = True
+            crud.update_project_qa_session(self.db, session, status="completed", qa_history=qa_history_list, current_question_text_entry_id=None)
+            logger.info(f"Project Q&A session {session.id} completed.")
+        elif session_is_complete:
+             crud.update_project_qa_session(self.db, session, status="completed", qa_history=qa_history_list, current_question_text_entry_id=None)
+
+
+        return schemas.ProjectQAResponse( 
+            session_id=session.id,
+            project_id=project_id,
+            next_question=next_question_text,
+            next_question_entry_id=next_question_entry_id,
+            is_complete=session_is_complete,
+            message="Answer recorded." + (" Session completed." if session_is_complete else " Here's the next question.")
+        )
+
+    def start_document_qa_session(self, project_id: str, document_id: str) -> schemas.DocumentQASessionStartResponse: 
+        """
+        Starts an interactive Q&A session for questions generated from a specific document.
+        """
+        project = crud.get_project(self.db, project_id)
+        if not project:
+            logger.error(f"Project with ID {project_id} not found for starting document Q&A.")
+            raise ValueError(f"Project with ID {project_id} not found.")
+        
+        document_entry = crud.get_document_knowledge_entry(self.db, document_id)
+        if not document_entry or document_entry.project_id != project_id:
+            logger.error(f"Document {document_id} not found or does not belong to project {project_id}.")
+            raise ValueError("Document not found or invalid for this project.")
+
+        unanswered_questions = crud.get_unanswered_questions_for_document(self.db, project_id, document_id)
+        
+        if not unanswered_questions:
+            session = crud.create_document_qa_session(self.db, project_id, document_id, current_question_text_entry_id=None)
+            crud.update_document_qa_session(self.db, session, status="no_questions")
+            logger.info(f"Started document Q&A session {session.id} for document {document_id}, but no unanswered questions found.")
+            return schemas.DocumentQASessionStartResponse(
+                session_id=session.id,
+                project_id=project_id,
+                document_id=document_id,
+                question=None,
+                question_entry_id=None,
+                is_complete=True, 
+                message="No unanswered questions found for this document. Session completed."
+            )
+        
+        first_question_entry = unanswered_questions[0]
+        session = crud.create_document_qa_session(self.db, project_id, document_id, first_question_entry.id)
+        
+        logger.info(f"Started document Q&A session {session.id} for document {document_id} with first question {first_question_entry.id}.")
+        return schemas.DocumentQASessionStartResponse(
+            session_id=session.id,
+            project_id=project_id,
+            document_id=document_id,
+            question=first_question_entry.question,
+            question_entry_id=first_question_entry.id,
+            is_complete=False,
+            message="Document Q&A session started."
+        )
+
+    def respond_to_document_qa(self, session_id: str, project_id: str, answer: str) -> schemas.DocumentQAResponse: 
+        """
+        Handles old member's answers in a document-specific interactive Q&A session.
+        """
+        session = crud.get_document_qa_session(self.db, session_id)
+        if not session or session.project_id != project_id or session.status == "completed":
+            logger.error(f"Document Q&A session {session_id} not found, invalid for project {project_id}, or already completed.")
+            raise HTTPException(status_code=400, detail="Document Q&A session not found, invalid, or already completed.")
+        
+        if session.status == "no_questions":
+             return schemas.DocumentQAResponse(
+                session_id=session.id,
+                project_id=project_id,
+                next_question=None,
+                next_question_entry_id=None,
+                is_complete=True,
+                message="No questions available for this session. Session completed."
+            )
+
+        current_question_entry_id = session.current_question_text_entry_id
+        current_question_entry = crud.get_text_knowledge_entry_by_id(self.db, current_question_entry_id)
+
+        if not current_question_entry or current_question_entry.document_knowledge_entry_id != session.document_id:
+            logger.error(f"Current question entry {current_question_entry_id} not found or mismatch with session document.")
+            raise HTTPException(status_code=400, detail="Current question entry invalid or missing.")
+
+        # Update the answer for the current question
+        crud.update_text_knowledge_entry_answer(self.db, current_question_entry_id, answer)
+        logger.info(f"Answered question {current_question_entry_id} for document {session.document_id}.")
+
+        # Ingest the answered Q&A into ChromaDB
+        chroma_manager = ChromaDBManager(project_id)
+        # Ensure document_entry is loaded for file_name
+        doc_entry_for_meta = crud.get_document_knowledge_entry(self.db, session.document_id)
+        file_name_for_meta = doc_entry_for_meta.file_name if doc_entry_for_meta else "Unknown Document"
+
+        chroma_manager.add_documents(
+            documents=[answer], # Embed the answer
+            metadatas=[{
+                "type": "document_qa",
+                "project_id": project_id,
+                "document_id": session.document_id,
+                "file_name": file_name_for_meta, 
+                "question": current_question_entry.question,
+                "answer": answer,
+                "source_context": current_question_entry.source_context if current_question_entry.source_context else answer 
+            }],
+            ids=[f"doc_qa_{current_question_entry_id}"]
+        )
+
+        # Find the next unanswered question for the *same document*
+        unanswered_questions = crud.get_unanswered_questions_for_document(self.db, project_id, session.document_id)
+        
+        if unanswered_questions:
+            next_question_entry = unanswered_questions[0] # Get the next one
+            crud.update_document_qa_session(self.db, session, current_question_text_entry_id=next_question_entry.id)
+            logger.info(f"Session {session.id}: Answered question, next question {next_question_entry.id}.")
+            return schemas.DocumentQAResponse(
+                session_id=session.id,
+                project_id=project_id,
+                next_question=next_question_entry.question,
+                next_question_entry_id=next_question_entry.id,
+                is_complete=False,
+                message="Answer recorded. Here's the next question for this document."
+            )
+        else:
+            crud.update_document_qa_session(self.db, session, status="completed", current_question_text_entry_id=None)
+            logger.info(f"Document Q&A session {session.id} completed. All questions answered.")
+            return schemas.DocumentQAResponse(
+                session_id=session.id,
+                project_id=project_id,
+                next_question=None,
+                next_question_entry_id=None,
+                is_complete=True,
+                message="All generated questions for this document have been answered. Session completed."
+            )

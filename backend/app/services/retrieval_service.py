@@ -62,7 +62,7 @@ class RetrievalService:
             source_documents_info.append(schemas.SourceDocument(
                 file_name=metadata.get("file_name", "Static Q&A" if metadata.get("type") == "static_qa" else "Unknown"),
                 question=metadata.get("question"),
-                context=metadata.get("source_context", doc_content), # Use source_context if available, else full chunk
+                context=metadata.get("source_context", doc_content), 
                 document_id=metadata.get("document_id"),
                 page_number=metadata.get("page_number")
             ))
@@ -76,9 +76,8 @@ class RetrievalService:
             )
 
         # 3. Pass retrieved documents and original query + history to the QA chain
-        # The document_qa_chain expects 'context' and 'input' (original query) and 'chat_history'
         final_answer_response = self.document_qa_chain.invoke({
-            "context": retrieved_langchain_docs, # List of LangChain Document objects
+            "context": retrieved_langchain_docs, 
             "input": query,
             "chat_history": lc_chat_history
         })
