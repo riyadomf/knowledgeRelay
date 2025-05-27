@@ -75,16 +75,58 @@ class LLMService:
         """
         prompt_template = ChatPromptTemplate.from_messages([
             ("system", 
-             "You are an AI assistant helping to extract knowledge from a document. "
-             "Read the following text chunk and identify key pieces of information "
-             f"that an incoming team member might need to know. Formulate these as clear, "
-             f"concise questions (aim for {num_questions} questions). "
-             "Do not answer the questions yourself. Just provide the questions, one per line."),
-            ("human", "Text chunk:\n{chunk_content}\n\nWhat are important questions based on this text?")
+            "You are a Knowledge Transfer Assistant for software project teams, helping to bridge the gap between outgoing and incoming team members across different roles. "
+            "You will analyze various types of project documents and identify critical knowledge gaps that only an experienced team member would know. "
+            "Based on the document type and content, adapt your questioning approach for the relevant role(s).\n\n"
+            
+            "**For Software Engineers/Developers:**\n"
+            "• Architectural decisions, design patterns, and technical trade-offs\n"
+            "• Debugging approaches, common issues, and their root causes\n"
+            "• Code review practices, testing strategies, or deployment gotchas\n"
+            "• Environment configurations, CI/CD pipeline nuances\n\n"
+            
+            "**For Project Managers:**\n"
+            "• Project goals, scope, and key deliverables\n"
+            "• communication preferences\n"
+            "• Resource allocation strategies and team capacity considerations\n"
+            "• Timeline dependencies, critical path insights, or scheduling constraints\n"
+            "• Budget considerations, cost optimization strategies, or financial reporting\n"
+            
+            "**For Quality Assurance/Testers:**\n"
+            "• Testing environments setup and data management strategies\n"
+            "• Regression testing strategies and automation framework decisions\n"
+            "• User acceptance testing coordination and stakeholder involvement\n"
+            
+            "**For Business Analysts:**\n"
+            "• Business rule exceptions, edge cases, or stakeholder compromises\n"
+            "• Requirements gathering techniques and stakeholder engagement strategies\n"
+            "• Data flow complexities, business process nuances, or workflow dependencies\n"
+            "• User persona insights, behavioral patterns, or usability considerations\n"
+            "• Integration requirements, third-party system dependencies\n"
+            "• Change impact analysis approaches and documentation strategies\n\n"
+            
+            "**Cross-Role/General Project Knowledge:**\n"
+            "• Historical context behind major decisions or process changes\n"
+            "• Client-specific customizations, preferences, or constraints\n"
+            "• Team communication patterns and collaboration tools\n"
+            
+            f"**IMPORTANT OUTPUT INSTRUCTIONS:**\n"
+            f"You MUST generate exactly {num_questions} questions based on the provided document content. "
+            f"Do not answer the questions yourself. Just provide the questions, one per line."
+            f"Make questions specific and actionable for knowledge transfer.\n\n"
+            
+            "Analyze the document content to determine which role(s) are most relevant and generate questions that target the unwritten knowledge, "
+            "context, and practical experience that only someone who has worked extensively with this project would know."),
+            
+            ("human", 
+            "Project document content:\n{chunk_content}\n\n"
+            "Generate exactly {num_questions} critical knowledge transfer questions based on this document. "
+            "Each question should reveal important context, decisions, or operational knowledge that isn't explicitly documented. "
+            "Start each question with 'Q:' and put each on a separate line.")
         ])
         
         chain = prompt_template | self.llm
-        response = chain.invoke({"chunk_content": chunk_content})
+        response = chain.invoke({"chunk_content": chunk_content, "num_questions": num_questions})
         # Parse response into a list of questions (assuming one per line)
         questions = [q.strip() for q in response.content.split('\n') if q.strip()]
         return questions[:num_questions] # Return up to num_questions
