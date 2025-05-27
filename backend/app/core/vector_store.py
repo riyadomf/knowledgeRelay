@@ -1,7 +1,7 @@
 import chromadb
 from chromadb.utils import embedding_functions
 from app.config import settings
-from typing import List, Dict, Optional, Tuple
+from typing import List, Dict, Optional, Tuple 
 import logging
 
 logger = logging.getLogger(__name__)
@@ -40,7 +40,7 @@ class ChromaDBManager:
                                "Install it for better embeddings if not using OpenAI.")
                 # If sentence-transformers is not installed, ChromaDB will use its default in-memory embedding function
                 # which is less robust but works for basic tests.
-                return None # ChromaDB will use its default if None provided explicitly.
+                return None 
             except Exception as e:
                 logger.error(f"Error initializing SentenceTransformerEmbeddingFunction: {e}. Falling back to default ChromaDB embedding.")
                 return None
@@ -64,7 +64,10 @@ class ChromaDBManager:
                 n_results=n_results,
                 include=['documents', 'metadatas']
             )
-            return results['documents'][0], results['metadatas'][0] # Return first query's results
+            if results and results.get('documents') and len(results['documents']) > 0:
+                return results['documents'][0], results['metadatas'][0]
+            else:
+                return [], []
         except Exception as e:
             logger.error(f"Error querying ChromaDB: {e}")
             return [], []
@@ -77,4 +80,3 @@ class ChromaDBManager:
         except Exception as e:
             logger.error(f"Error deleting ChromaDB collection '{self.collection_name}': {e}")
             raise
-
