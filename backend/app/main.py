@@ -1,8 +1,10 @@
 import logging
+import os
 import uuid 
 from typing import List, Dict, Union
 
 from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File
+from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
@@ -10,6 +12,7 @@ from app import models, schemas
 from app.database import engine, get_db
 from app.services.ingestion_service import IngestionService
 from app.services.retrieval_service import RetrievalService
+from backend.app.config import Settings
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -278,4 +281,12 @@ def retrieve_relevant_chunks(
     except Exception as e:
         logger.exception(f"Unexpected relevant chunks retrieval error for project {request.project_id}.")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Relevant chunks retrieval failed: {e}")
+
+
+@app.get("/download")
+def download_file(file_path: str, filename: str):
+    # file_path = os.path.join(Settings.TEMP_DIR, project_id, filename)
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="File not found")
+    return FileResponse(path=file_path, filename=filename, media_type="application/octet-stream")
 
