@@ -53,11 +53,11 @@ class RetrievalService:
             metadata = retrieved_metadatas[i]
             lc_doc = Document(page_content=doc_content, metadata=metadata)
             retrieved_langchain_docs.append(lc_doc)
+        
 
             source_documents_info.append(schemas.SourceDocument(
                 file_name=metadata.get("file_name", "Static Q&A" if metadata.get("type") == "static_qa" else "Unknown"),
-                question=metadata.get("question"),
-                context=metadata.get("source_context", doc_content), 
+                file_path=metadata.get("source"),
                 document_id=metadata.get("document_id"),
                 page_number=metadata.get("page_number")
             ))

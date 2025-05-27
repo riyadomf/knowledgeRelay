@@ -12,7 +12,7 @@ from app import models, schemas
 from app.database import engine, get_db
 from app.services.ingestion_service import IngestionService
 from app.services.retrieval_service import RetrievalService
-from backend.app.config import Settings
+from app.config import Settings
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)

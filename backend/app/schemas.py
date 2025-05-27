@@ -143,8 +143,7 @@ class ChatMessage(BaseModel):
 
 class SourceDocument(BaseModel):
     file_name: str
-    question: Optional[str] = None 
-    context: str 
+    file_path: str
     document_id: Optional[str] = None 
     page_number: Optional[int] = None 
 

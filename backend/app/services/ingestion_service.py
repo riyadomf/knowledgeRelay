@@ -14,7 +14,7 @@ from app.core.vector_store import ChromaDBManager
 from app.core.document_loaders import load_document
 from app.core.text_splitters import split_documents, load_and_chunk_file
 from app.services.llm_service import LLMService
-from backend.app.config import Settings
+from app.config import Settings
 
 logger = logging.getLogger(__name__)
 
