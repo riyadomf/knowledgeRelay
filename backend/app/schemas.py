@@ -140,10 +140,12 @@ class ChatRole(str, Enum):
 class ChatMessage(BaseModel):
     role: ChatRole
     content: str
-
+    
 class SourceDocument(BaseModel):
     file_name: str
-    file_path: str
+    file_path: Optional[str] = None
+    question: Optional[str] = None 
+    context: Optional[str] = None 
     document_id: Optional[str] = None 
     page_number: Optional[int] = None 
 
