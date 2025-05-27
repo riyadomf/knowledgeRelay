@@ -7,17 +7,16 @@ class Settings(BaseSettings):
 
     DATABASE_URL: str = "sqlite:///./sql_app.db"
     VECTOR_DB_PATH: str = "./chroma_db"
-    OPENROUTER_BASE_URL: str = os.getenv("OPENROUTER_BASE_URL", "https://api.openrouter.ai/v1")
-
-    OPENROUTER_BASE_URL: str = "https://openrouter.ai/api/v1"
 
     OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
     OPENROUTER_API_KEY: str = os.getenv("OPENROUTER_API_KEY", "")
-    OPENROUTER_BASE_URL: str = os.getenv("OPENROUTER_BASE_URL", "https://api.openrouter.ai/v1")
+    OPENROUTER_BASE_URL: str = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
     OLLAMA_BASE_URL: str = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
     
     # Configure which LLM provider to use (openai, openrouter, ollama)
     LLM_PROVIDER: str = os.getenv("LLM_PROVIDER", "openrouter").lower() 
+    
+    LLM_TEMPERATURE: float = os.getenv("LLM_TEMPERATURE", 0.3)
     
     # Model names
     OPENAI_MODEL_NAME: str = "gpt-3.5-turbo"
@@ -32,5 +31,6 @@ class Settings(BaseSettings):
     CORS_ORIGINS: List[str] = ["http://localhost", "http://localhost:3000"] # Example origins
     
     TEMP_DIR: str = "/tmp/knowledge_relay_uploads"
+    
 
 settings = Settings()

@@ -127,7 +127,7 @@ async def ingest_document(
     This step prepares the document for question generation, but doesn't create
     Q&A pairs yet.
     """
-    allowed_file_types = ["pdf", "word", "txt", "md"]
+    allowed_file_types = ["pdf", "docx", "doc", "txt", "csv", "md", "py", "js", "ts", "java", "cpp", "c", "cs", "rb", "go", "php", "rs"]
     file_extension = file.filename.split(".")[-1].lower()
 
     if file_extension not in allowed_file_types:
