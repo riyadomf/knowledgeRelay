@@ -12,7 +12,7 @@ from langchain_core.documents import Document
 from app import schemas, crud, models
 from app.core.vector_store import ChromaDBManager
 from app.core.document_loaders import load_document
-from app.core.text_splitters import split_documents, load_and_chunk_file
+from app.core.text_splitters import split_documents
 from app.services.llm_service import LLMService
 from app.config import Settings
 

@@ -1,4 +1,4 @@
-from langchain_community.document_loaders import PyPDFLoader, UnstructuredWordDocumentLoader, TextLoader
+from langchain_community.document_loaders import PyPDFLoader, TextLoader, UnstructuredWordDocumentLoader, UnstructuredMarkdownLoader
 from langchain_core.documents import Document
 from typing import List
 import logging
@@ -11,7 +11,9 @@ def load_document(file_path: str, file_type: str) -> List[Document]:
             loader = PyPDFLoader(file_path)
         elif file_type == "word":
             loader = UnstructuredWordDocumentLoader(file_path)
-        elif file_type in ["txt", "md"]:
+        elif file_type == "md":
+            loader = UnstructuredMarkdownLoader(file_path)
+        elif file_type in ["txt"]:
             loader = TextLoader(file_path)
         else:
             raise ValueError(f"Unsupported file type: {file_type}")

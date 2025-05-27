@@ -25,7 +25,8 @@ class Settings(BaseSettings):
     OLLAMA_MODEL_NAME: str = "llama3.2" # Example Ollama model
     
     # Embedding model name (used by ChromaDB if not using OpenAI's embedding function)
-    EMBEDDING_MODEL_NAME: str = "all-MiniLM-L6-v2" # Sentence-transformers model
+    # EMBEDDING_MODEL_NAME: str = "all-MiniLM-L6-v2" # Sentence-transformers model
+    EMBEDDING_MODEL_NAME: str = os.getenv("EMBEDDING_MODEL_NAME", "all-MiniLM-L6-v2")  # Default to a common sentence transformer model
 
     # CORS settings (add this for frontend integration)
     CORS_ORIGINS: List[str] = ["http://localhost", "http://localhost:3000"] # Example origins

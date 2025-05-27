@@ -1,5 +1,5 @@
 import chromadb
-from chromadb.utils import embedding_functions
+from chromadb.utils import embedding_functions # CHANGED: Moved import to top-level
 from app.config import settings
 from typing import List, Dict, Optional, Tuple 
 import logging
@@ -24,26 +24,19 @@ class ChromaDBManager:
             logger.info("Using OpenAIEmbeddingFunction for ChromaDB.")
             return embedding_functions.OpenAIEmbeddingFunction(
                 api_key=settings.OPENAI_API_KEY,
-                model_name="text-embedding-ada-002"
-            )
-        elif settings.LLM_PROVIDER == "openrouter" and settings.OPENROUTER_API_KEY:
-            logger.info("Using OpenRouterEmbeddingFunction for ChromaDB.")
-            return embedding_functions.OpenRouterEmbeddingFunction(
-                api_key=settings.OPENROUTER_API_KEY,
-                model_name=settings.OPENROUTER_MODEL_NAME
+                model_name=settings.OPENAI_EMBEDDING_MODEL_NAME # CHANGED: Use specific OpenAI embedding model from settings
             )
         else:
             # Fallback for hackathon simplicity: use a pre-trained Sentence Transformer model
             # This requires 'sentence-transformers' package to be installed.
             try:
-                from chromadb.utils import embedding_functions
                 logger.info(f"Using SentenceTransformerEmbeddingFunction ('{settings.EMBEDDING_MODEL_NAME}') for ChromaDB.")
                 return embedding_functions.SentenceTransformerEmbeddingFunction(
                     model_name=settings.EMBEDDING_MODEL_NAME
                 )
             except ImportError:
                 logger.warning("Warning: 'sentence-transformers' not found. Using default ChromaDB embedding. "
-                               "Install it for better embeddings if not using OpenAI.")
+                               "Install it for better embeddings if not using OpenAI/OpenRouter.")
                 # If sentence-transformers is not installed, ChromaDB will use its default in-memory embedding function
                 # which is less robust but works for basic tests.
                 return None 
