@@ -16,6 +16,8 @@ class Settings(BaseSettings):
     # Configure which LLM provider to use (openai, openrouter, ollama)
     LLM_PROVIDER: str = os.getenv("LLM_PROVIDER", "openrouter").lower() 
     
+    LLM_TEMPERATURE: float = os.getenv("LLM_TEMPERATURE", 0.3)
+    
     # Model names
     OPENAI_MODEL_NAME: str = "gpt-3.5-turbo"
     OPENROUTER_MODEL_NAME: str = os.getenv("OPENROUTER_MODEL_NAME") # Example Openrouter model

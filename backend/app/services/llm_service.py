@@ -27,7 +27,7 @@ class LLMService:
                 api_key=settings.OPENROUTER_API_KEY, 
                 model_name=settings.OPENROUTER_MODEL_NAME,
                 base_url=settings.OPENROUTER_BASE_URL,
-                temperature=0.7
+                temperature=settings.LLM_TEMPERATURE
             )
         elif settings.LLM_PROVIDER == "ollama":
             logger.info(f"Initializing ChatOllama with model: {settings.OLLAMA_MODEL_NAME} at {settings.OLLAMA_BASE_URL}")
