@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     OLLAMA_BASE_URL: str = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
     
     # Configure which LLM provider to use (openai, openrouter, ollama)
-    LLM_PROVIDER: str = os.getenv("LLM_PROVIDER", "openai").lower() 
+    LLM_PROVIDER: str = os.getenv("LLM_PROVIDER", "ollama").lower() 
     
     # Model names
     OPENAI_MODEL_NAME: str = "gpt-3.5-turbo"

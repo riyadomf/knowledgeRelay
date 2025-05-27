@@ -58,7 +58,17 @@ class LLMService:
         chain = prompt_template | self.llm
         response = chain.invoke({"existing_qa_summary": qa_summary})
         return response.content
+    
+    def x(self, prompt_text:str) -> str :
+        prompt_template = ChatPromptTemplate.from_messages([
+            ("human", "{user_input}")  # Define an input variable named 'user_input'
+        ])
+        chain = prompt_template | self.llm
+        
 
+        response = chain.invoke({"user_input": prompt_text})
+        return response.content
+    
     def generate_questions_from_document_chunk(self, chunk_content: str) -> List[str]:
         """
         Generates potential questions based on a specific document chunk.

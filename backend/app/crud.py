@@ -99,3 +99,44 @@ def update_interactive_qa_session(
     db.commit()
     db.refresh(session)
     return session
+
+# In your crud.py
+
+# ... existing imports ...
+
+def get_unanswered_interactive_qa_question(db: Session, project_id: str):
+    """
+    Retrieves a single TextKnowledgeEntry that represents an interactive Q&A question
+    that has not yet been answered (answer is NULL).
+    Prioritizes the oldest unanswered question.
+    """
+    return db.query(models.TextKnowledgeEntry).filter(
+        models.TextKnowledgeEntry.project_id == project_id,
+        models.TextKnowledgeEntry.is_interactive_qa == True,
+        models.TextKnowledgeEntry.question.isnot(None),
+        models.TextKnowledgeEntry.answer.is_(None)
+    ).order_by(models.TextKnowledgeEntry.created_at).first()
+
+def update_text_knowledge_entry_answer(db: Session, entry_id: str, answer: str):
+    """
+    Updates the answer for a specific TextKnowledgeEntry.
+    """
+    entry = db.query(models.TextKnowledgeEntry).filter(
+        models.TextKnowledgeEntry.id == entry_id
+    ).first()
+    if entry:
+        entry.answer = answer
+        db.add(entry)
+        db.commit()
+        db.refresh(entry)
+    return entry
+
+def get_recent_text_knowledge_entries(db: Session, project_id: str, limit: int = 5):
+    """
+    Retrieves recent text knowledge entries for a project to provide context to the LLM.
+    """
+    return db.query(models.TextKnowledgeEntry).filter(
+        models.TextKnowledgeEntry.project_id == project_id
+    ).order_by(models.TextKnowledgeEntry.created_at.desc()).limit(limit).all()
+
+# ... existing crud functions ...
