@@ -56,7 +56,7 @@ class LLMService:
         response = chain.invoke({"existing_qa_summary": qa_summary})
         return response.content
     
-    def x(self, prompt_text:str) -> str :
+    def generate_project_questions(self, prompt_text:str) -> str :
         prompt_template = ChatPromptTemplate.from_messages([
             ("human", "{user_input}")  # Define an input variable named 'user_input'
         ])

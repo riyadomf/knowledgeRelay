@@ -83,7 +83,7 @@ class IngestionService:
 
             
             # Replace with your actual LLM call
-            llm_response = self.llm_service.x(qa_prompt_text)
+            llm_response = self.llm_service.generate_project_questions(qa_prompt_text)
 
 
             # Extract list from numbered response (basic example, improve as needed)
@@ -356,6 +356,14 @@ class IngestionService:
                 message="Failed to start session due to LLM error."
             )
 
+
+
+
+
+
+
+
+
     def respond_to_project_qa(self, session_id: str, project_id: str, answer: str) -> schemas.ProjectQAResponse: 
         """
         Handles old member's answers in a project-wide interactive Q&A session.
@@ -438,52 +446,25 @@ class IngestionService:
                 next_question_entry_id = next_question_entry.id
                 crud.update_project_qa_session(self.db, session, current_question_text_entry_id=next_question_entry.id, qa_history=qa_history_list, status="active")
                 logger.info(f"Session {session.id}: Next Q (DB) {next_question_entry.id}.")
-            else: 
-                next_predefined_index = session.current_question_index + 1
-                if next_predefined_index < len(INITIAL_PROJECT_QA_QUESTIONS):
-                    next_question_text = INITIAL_PROJECT_QA_QUESTIONS[next_predefined_index]
-                    crud.update_project_qa_session(self.db, session, current_question_index=next_predefined_index, current_question_text_entry_id=None, qa_history=qa_history_list, status="active")
-                    logger.info(f"Session {session.id}: Next Q (Predefined) {next_predefined_index}.")
-                else: 
-                    try:
-                        llm_generated_question = self.llm_service.generate_static_qa_question(existing_qa=qa_history_list)
-                        new_qa_entry = crud.create_text_knowledge_entry(
-                            db=self.db,
-                            project_id=project_id,
-                            question=llm_generated_question,
-                            answer=None,
-                            source_context=None,
-                            is_interactive_qa=True
-                        )
-                        next_question_text = new_qa_entry.question
-                        next_question_entry_id = new_qa_entry.id
-                        crud.update_project_qa_session(self.db, session, current_question_index=next_predefined_index, current_question_text_entry_id=new_qa_entry.id, qa_history=qa_history_list, status="active")
-                        logger.info(f"Session {session.id}: Next Q (LLM Generated) {new_qa_entry.id}.")
-                    except Exception as e:
-                        logger.error(f"Failed to generate next LLM question for project {project_id}: {e}")
-                        session_is_complete = True 
         else: 
-            next_predefined_index = session.current_question_index + 1
-            if next_predefined_index < len(INITIAL_PROJECT_QA_QUESTIONS):
-                next_question_text = INITIAL_PROJECT_QA_QUESTIONS[next_predefined_index]
-                crud.update_project_qa_session(self.db, session, current_question_index=next_predefined_index, current_question_text_entry_id=None, qa_history=qa_history_list, status="active")
-                logger.info(f"Session {session.id}: Next Q (Predefined) {next_predefined_index}.")
-            else: 
-                try:
-                    llm_generated_question = self.llm_service.generate_static_qa_question(existing_qa=qa_history_list)
-                    new_qa_entry = crud.create_text_knowledge_entry(
-                        db=self.db,
-                        project_id=project_id,
-                        question=llm_generated_question,
-                        answer=None,
-                        source_context=None,
-                        is_interactive_qa=True
-                    )
+            try:
+                    llm_generated_questions = self._generate_question_with_llm(project_id)
+                    for idx , question in enumerate(llm_generated_questions):
+                        x = crud.create_text_knowledge_entry(
+                            db = self.db,
+                            project_id= project_id,
+                            question= question,
+                            answer=None,
+                            is_interactive_qa=True,
+                        )
+                        if(idx == 0 ):
+                            new_qa_entry = x
+                    
                     next_question_text = new_qa_entry.question
                     next_question_entry_id = new_qa_entry.id
-                    crud.update_project_qa_session(self.db, session, current_question_index=next_predefined_index, current_question_text_entry_id=new_qa_entry.id, qa_history=qa_history_list, status="active")
+                    crud.update_project_qa_session(self.db, session,  current_question_text_entry_id=new_qa_entry.id, qa_history=qa_history_list, status="active")
                     logger.info(f"Session {session.id}: Next Q (LLM Generated) {new_qa_entry.id}.")
-                except Exception as e:
+            except Exception as e:
                     logger.error(f"Failed to generate next LLM question for project {project_id}: {e}")
                     session_is_complete = True 
         
@@ -503,6 +484,20 @@ class IngestionService:
             is_complete=session_is_complete,
             message="Answer recorded." + (" Session completed." if session_is_complete else " Here's the next question.")
         )
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     # Removed start_document_qa_session and respond_to_document_qa from IngestionService
     def get_next_document_question(self, project_id: str, document_id: str) -> schemas.GetNextDocumentQuestionResponse:
