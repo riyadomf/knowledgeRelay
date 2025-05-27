@@ -82,6 +82,7 @@ class IngestionService:
             # Replace with your actual LLM call
             llm_response = self.llm_service.x(qa_prompt_text)
 
+
             # Extract list from numbered response (basic example, improve as needed)
             questions = [line.strip().split(". ", 1)[1] for line in llm_response.splitlines() if line.strip().startswith(tuple("123456789"))]
             logger.info(f"LLM generated questions for project {project_id}: {questions}")
@@ -326,7 +327,7 @@ class IngestionService:
                 logger.warning("Failed to generate any initial question for interactive Q&A.")
                 question_to_ask = "No questions available. Session complete."
                 is_complete = True
-                crud.update_interactive_qa_session(self.db, session, status="completed")
+                crud.update_project_qa_session(self.db, session, status="completed")
             
             
             crud.update_project_qa_session(self.db, session, current_question_text_entry_id=new_qa_entry.id, current_question_index=len(INITIAL_PROJECT_QA_QUESTIONS)) 
