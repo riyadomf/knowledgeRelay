@@ -278,109 +278,108 @@ function App() {
     }
   };
 
-  const fetchNextDocQuestion = async () => {
-    if (!selectedProject || !uploadedDocument) {
-      showMessage("Project or document not selected.", true);
-      return;
-    }
-    setLoading(true);
-    try {
-      const response = await fetch(
-        `${API_BASE_URL}/transfer/document-qa/get-next-question/`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            project_id: selectedProject.id,
-            document_id: uploadedDocument.id,
-          }),
-        }
+const fetchNextDocQuestion = async () => {
+  if (!selectedProject || !uploadedDocument) {
+    showMessage("Project or document not selected.", true);
+    return;
+  }
+  setLoading(true);
+  try {
+    const response = await fetch(
+      `${API_BASE_URL}/transfer/document-qa/get-next-question/`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          project_id: selectedProject.id,
+          document_id: uploadedDocument.id,
+        }),
+      }
+    );
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(
+        errorData.detail || `HTTP error! status: ${response.status}`
       );
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(
-          errorData.detail || `HTTP error! status: ${response.status}`
-        );
-      }
-      const data = await response.json();
-      setCurrentDocQuestion(data);
-      if (data.question) {
-        showMessage("Next question loaded.");
-      } else {
-        showMessage(data.message); // e.g., "No unanswered questions found"
-      }
-    } catch (error) {
-      console.error("Error fetching next document question:", error);
-      showMessage(`Failed to fetch next question: ${error.message}`, true);
-    } finally {
-      setLoading(false);
     }
-  };
+    const data = await response.json();
+    
+    if (data.question) {
+      setCurrentDocQuestion({
+        question: data.question,
+        question_entry_id: data.question_entry_id,
+        is_complete: false,
+        source_context: data.source_context // if provided by backend
+      });
+      showMessage("Next question loaded.");
+    } else {
+      // No more questions available
+      setCurrentDocQuestion({ is_complete: true });
+      showMessage(data.message || "All questions for this document have been answered.");
+    }
+  } catch (error) {
+    console.error("Error fetching next document question:", error);
+    showMessage(`Failed to fetch next question: ${error.message}`, true);
+  } finally {
+    setLoading(false);
+  }
+};
 
-  const answerDocQuestion = async () => {
-    if (
-      !docQaAnswer.trim() ||
-      !currentDocQuestion ||
-      currentDocQuestion.is_complete
-    ) {
-      showMessage("Please provide an answer or no active question.", true);
-      return;
-    }
-    setLoading(true);
-    try {
-      // Add answered question to history
-      setDocQaHistory((prev) => [
-        ...prev,
-        {
-          question: currentDocQuestion.question,
+const answerDocQuestion = async () => {
+  if (
+    !docQaAnswer.trim() ||
+    !currentDocQuestion ||
+    currentDocQuestion.is_complete
+  ) {
+    showMessage("Please provide an answer or no active question.", true);
+    return;
+  }
+  setLoading(true);
+  try {
+    // Add answered question to history
+    setDocQaHistory((prev) => [
+      ...prev,
+      {
+        question: currentDocQuestion.question,
+        answer: docQaAnswer,
+        source_context: currentDocQuestion.source_context,
+      },
+    ]);
+
+    const response = await fetch(
+      `${API_BASE_URL}/transfer/document-qa/answer-question/`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          project_id: selectedProject.id,
+          question_entry_id: currentDocQuestion.question_entry_id,
           answer: docQaAnswer,
-          source_context: currentDocQuestion.source_context, // Assuming source_context might be returned
-        },
-      ]);
-
-      const response = await fetch(
-        `${API_BASE_URL}/transfer/document-qa/answer-question/`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            project_id: selectedProject.id,
-            question_entry_id: currentDocQuestion.question_entry_id,
-            answer: docQaAnswer,
-          }),
-        }
+        }),
+      }
+    );
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(
+        errorData.detail || `HTTP error! status: ${response.status}`
       );
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(
-          errorData.detail || `HTTP error! status: ${response.status}`
-        );
-      }
-      const data = await response.json();
-      setDocQaAnswer(""); // Clear input
-
-      if (data.is_complete) {
-        setCurrentDocQuestion(null); // No more questions
-        showMessage(
-          data.message || "All questions for this document have been answered."
-        );
-      } else {
-        setCurrentDocQuestion({
-          question: data.next_question,
-          question_entry_id: data.next_question_entry_id,
-          is_complete: data.is_complete,
-        });
-        showMessage(
-          data.message || "Answer recorded. Here is the next question."
-        );
-      }
-    } catch (error) {
-      console.error("Error answering document question:", error);
-      showMessage(`Failed to answer document question: ${error.message}`, true);
-    } finally {
-      setLoading(false);
     }
-  };
+    const data = await response.json();
+    setDocQaAnswer(""); // Clear input
+
+    showMessage(data.message || "Answer recorded successfully.");
+
+    // Always fetch the next question after successfully answering
+    await fetchNextDocQuestion();
+
+  } catch (error) {
+    console.error("Error answering document question:", error);
+    showMessage(`Failed to answer document question: ${error.message}`, true);
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   // --- New Member: Conversational Q&A ---
   const askNewMemberQuery = async () => {
