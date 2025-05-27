@@ -5,8 +5,10 @@ import uuid
 import json
 from sqlalchemy import Integer
 
+
 def create_project(db: Session, project: schemas.ProjectCreate) -> models.Project:
-    db_project = models.Project(id=project.id, name=project.name)
+    # Generate UUID for the new project ID
+    db_project = models.Project(id=str(uuid.uuid4()), name=project.name)
     db.add(db_project)
     db.commit()
     db.refresh(db_project)

@@ -6,6 +6,7 @@ python-dotenv
 langchain>=0.1.0 # Ensure you're on v0.1.x or higher for LangChain v3
 langchain-community
 langchain-core
+langchain-ollama # For Ollama compatibility
 langchain-openai # For OpenAI compatibility, even with Ollama/Openrouter via API
 chromadb
 python-multipart # For file uploads

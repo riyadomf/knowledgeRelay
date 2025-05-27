@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     # Model names
     OPENAI_MODEL_NAME: str = "gpt-3.5-turbo"
     OPENROUTER_MODEL_NAME: str = "mistralai/mistral-7b-instruct-v0.2" # Example Openrouter model
-    OLLAMA_MODEL_NAME: str = "llama2" # Example Ollama model
+    OLLAMA_MODEL_NAME: str = "llama3.2" # Example Ollama model
     
     # Embedding model name (used by ChromaDB if not using OpenAI's embedding function)
     EMBEDDING_MODEL_NAME: str = "all-MiniLM-L6-v2" # Sentence-transformers model

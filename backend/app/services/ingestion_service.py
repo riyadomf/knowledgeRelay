@@ -32,7 +32,7 @@ class IngestionService:
         self.db = db
         self.llm_service = LLMService()
 
-    def ingest_static_qa(self, project_id: str, questions_answers: List[Dict[str, str]], is_interactive_qa: bool = False):
+    def ingest_static_qa(self, project_id: str, questions_answers: List[Dict[str, str]], is_interactive_qa: bool = False, document_knowledge_entry_id: Optional[str] = None): # Added document_knowledge_entry_id
         project = crud.get_project(self.db, project_id)
         if not project:
             logger.error(f"Project with ID {project_id} not found for static Q&A ingestion.")
@@ -56,19 +56,24 @@ class IngestionService:
                 project_id=project_id,
                 question=question,
                 answer=answer,
+                document_knowledge_entry_id=document_knowledge_entry_id, # Pass document_knowledge_entry_id
                 source_context=answer, # For static Q&A, the answer itself is the context
                 is_interactive_qa=is_interactive_qa
             )
             
             # Prepare for vector DB ingestion
             documents_to_add.append(answer) # Embed the answer for retrieval
-            metadatas_to_add.append({
+            metadata = { # Build metadata dictionary
                 "type": "static_qa",
                 "project_id": project_id,
                 "question": question,
                 "answer": answer,
                 "source_context": answer
-            })
+            }
+            if document_knowledge_entry_id: # Add document_id if provided
+                metadata["document_id"] = document_knowledge_entry_id
+                metadata["file_name"] = crud.get_document_knowledge_entry(self.db, document_knowledge_entry_id).file_name if crud.get_document_knowledge_entry(self.db, document_knowledge_entry_id) else "Unknown Document"
+            metadatas_to_add.append(metadata)
             ids_to_add.append(f"static_qa_{uuid.uuid4()}")
 
         if documents_to_add:
@@ -116,7 +121,7 @@ class IngestionService:
                 project_id=project_id,
                 document_knowledge_entry_id=document_db_entry.id,
                 answer=doc_chunk.page_content, # Store chunk content as answer
-                source_context=doc_chunk.page_content # Source context is the chunk itself
+                source_context=doc_chunk.page_content
             )
 
             # Prepare for ChromaDB
@@ -190,7 +195,7 @@ class IngestionService:
             raise ValueError("Interactive Q&A session not found or invalid for this project.")
         
         if session.status == "completed":
-            logger.info(f"Interactive Q&A session {session_id} is already completed.")
+            logger.info(f"Interactive Q&A session {session.id} is already completed.")
             return schemas.InteractiveQAResponse(
                 session_id=session.id,
                 project_id=project_id,
