@@ -403,13 +403,6 @@ function App() {
             onChange={(e) => setNewProjectName(e.target.value)}
             className="w-full p-3 mb-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
           />
-          <textarea
-            placeholder="Project Description (Optional)"
-            value={newProjectDescription}
-            onChange={(e) => setNewProjectDescription(e.target.value)}
-            rows="3"
-            className="w-full p-3 mb-4 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 resize-y"
-          ></textarea>
           <button
             onClick={handleCreateProject}
             className="w-full px-6 py-3 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 transition duration-300 ease-in-out"
@@ -440,7 +433,7 @@ function App() {
               <option value="" disabled>Select a project</option>
               {projects.map((project) => (
                 <option key={project.id} value={project.id}>
-                  {project.name} ({project.id.substring(0, 8)}...)
+                  {project.name}
                 </option>
               ))}
             </select>
