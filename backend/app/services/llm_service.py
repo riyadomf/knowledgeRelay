@@ -56,15 +56,42 @@ class LLMService:
         response = chain.invoke({"existing_qa_summary": qa_summary})
         return response.content
     
-    def generate_project_questions(self, prompt_text:str) -> str :
+    def generate_project_questions(self, context_for_llm: str, num_of_questions: str) -> str :
+        qa_prompt_text = f"""
+        You are an AI assistant helping an experienced team member prepare for a knowledge transfer session with a new team member.
+
+        Here is a summary of previous knowledge shared in Q&A format:
+        {context_for_llm}
+
+        Your task is to generate {num_of_questions} thoughtful and non-redundant questions that will help the new team member gain a deeper understanding of the project.
+
+        1. If the user's project role is not yet clear in the above context, ask: "What is your role in the project? (e.g., Developer, Quality Assurance, Product Manager, Business Analyst)" as the first question.
+
+        2. Then, ask insightful questions related to:
+        - Project goals
+        - System architecture and components
+        - Technology choices and trade-offs
+        - Deployment pipeline and environments
+        - Frequent bugs or gotchas
+        - Team workflows, communication tools
+        - Key dependencies or contacts
+
+        Only ask questions that are not already answered in the above context. If all major topics are covered, suggest ending the session.
+
+        **Respond with a numbered list of exactly {num_of_questions} unique questions.**
+        "Return only a numbered list (e.g., 1. ..., 2. ..., etc.) with no other explanation."
+        """
+        
         prompt_template = ChatPromptTemplate.from_messages([
+            ("system", "You are a helpful AI assistant"),
             ("human", "{user_input}")  # Define an input variable named 'user_input'
         ])
         chain = prompt_template | self.llm
         
 
-        response = chain.invoke({"user_input": prompt_text})
+        response = chain.invoke({"user_input": qa_prompt_text})
         return response.content
+    
 
     def generate_questions_from_document_chunk(self, chunk_content: str, num_questions: int = 3) -> List[str]:
         """
