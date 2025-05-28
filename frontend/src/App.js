@@ -26,7 +26,17 @@ function App() {
   const [qaType, setQaType] = useState(null); // 'project_qa' or 'document_qa'
   const [currentView, setCurrentView] = useState("role_selection"); // 'role_selection', 'project_selection', 'qa_selection', 'project_qa', 'document_qa', 'new_member_qa'
   const [errorMessage, setErrorMessage] = useState("");
+
   const [loading, setLoading] = useState(false);
+
+  
+  const [projectsLoading, setProjectsLoading] = useState(false);
+  const [createProjectLoading, setCreateProjectLoading] = useState(false);
+  const [uploadDocLoading, setUploadDocLoading] = useState(false);
+  const [generateQuestionsLoading, setGenerateQuestionsLoading] = useState(false);
+  const [answerDocQuestionLoading, setAnswerDocQuestionLoading] = useState(false);
+  const [projectQaLoading, setProjectQaLoading] = useState(false);
+  const [newMemberQueryLoading, setNewMemberQueryLoading] = useState(false);
 
   // State for Project-based Q&A (Old Member)
   const [projectQaSession, setProjectQaSession] = useState(null); // { session_id, project_id, question, question_entry_id, is_complete }
@@ -56,7 +66,7 @@ function App() {
   };
 
   const fetchProjects = async () => {
-    setLoading(true);
+    setProjectsLoading(true);
     try {
       const response = await fetch(`${API_BASE_URL}/projects/`);
       if (!response.ok) {
@@ -68,7 +78,7 @@ function App() {
       console.error("Error fetching projects:", error);
       showMessage(`Failed to fetch projects: ${error.message}`, true);
     } finally {
-      setLoading(false);
+      setProjectsLoading(false);
     }
   };
 
@@ -77,7 +87,7 @@ function App() {
       showMessage("Project name cannot be empty.", true);
       return;
     }
-    setLoading(true);
+    setCreateProjectLoading(true);
     try {
       const response = await fetch(`${API_BASE_URL}/projects/`, {
         method: "POST",
@@ -103,9 +113,9 @@ function App() {
       console.error("Error creating project:", error);
       showMessage(`Failed to create project: ${error.message}`, true);
     } finally {
-      setLoading(false);
+      setCreateProjectLoading(false);
     }
-  };
+  };  
 
   const handleSelectProject = (project) => {
     setSelectedProject(project);
@@ -215,7 +225,7 @@ function App() {
       showMessage("Please select a file and a project.", true);
       return;
     }
-    setLoading(true);
+    setUploadDocLoading(true);
     const formData = new FormData();
     formData.append("file", selectedFile);
 
@@ -242,7 +252,7 @@ function App() {
       console.error("Error uploading document:", error);
       showMessage(`Failed to upload document: ${error.message}`, true);
     } finally {
-      setLoading(false);
+      setUploadDocLoading(false);
     }
   };
 
@@ -251,7 +261,7 @@ function App() {
       showMessage("Please upload a document first.", true);
       return;
     }
-    setLoading(true);
+    setGenerateQuestionsLoading(true);
     try {
       const response = await fetch(
         `${API_BASE_URL}/transfer/document-qa/generate-questions/`,
@@ -278,7 +288,7 @@ function App() {
       console.error("Error generating questions:", error);
       showMessage(`Failed to generate questions: ${error.message}`, true);
     } finally {
-      setLoading(false);
+      setGenerateQuestionsLoading(false);
     }
   };
 
@@ -340,7 +350,7 @@ function App() {
       showMessage("Please provide an answer or no active question.", true);
       return;
     }
-    setLoading(true);
+    setAnswerDocQuestionLoading(true);
     try {
       // Add answered question to history
       setDocQaHistory((prev) => [
@@ -381,7 +391,7 @@ function App() {
       console.error("Error answering document question:", error);
       showMessage(`Failed to answer document question: ${error.message}`, true);
     } finally {
-      setLoading(false);
+      setAnswerDocQuestionLoading(false);
     }
   };
 
@@ -504,9 +514,9 @@ function App() {
             <button
               onClick={handleCreateProject}
               className="w-full px-6 py-3 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 transition duration-300 ease-in-out"
-              disabled={loading}
+              disabled={createProjectLoading}
             >
-              {loading ? "Creating..." : "Create Project"}
+              {createProjectLoading ? "Creating..." : "Create Project"}
             </button>
           </div>
         )}
@@ -516,7 +526,7 @@ function App() {
           <h3 className="text-xl font-semibold text-gray-700 mb-4 flex items-center">
             <FileText size={20} className="mr-2" /> Select Existing Project
           </h3>
-          {loading ? (
+          {projectsLoading ? (
             <p className="text-gray-500 text-center">Loading projects...</p>
           ) : projects.length === 0 ? (
             <p className="text-gray-500 text-center">
@@ -712,9 +722,9 @@ function App() {
           <button
             onClick={handleUploadDocument}
             className="w-full px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 transition duration-300"
-            disabled={loading || !selectedFile}
+            disabled={uploadDocLoading || !selectedFile}  
           >
-            {loading && selectedFile ? "Uploading..." : "Upload Document"}
+            {uploadDocLoading && selectedFile ? "Uploading..." : "Upload Document"}
           </button>
           {uploadedDocument && (
             <p className="text-green-600 mt-3 text-center">
@@ -736,9 +746,9 @@ function App() {
             <button
               onClick={handleGenerateQuestions}
               className="w-full px-6 py-3 bg-purple-600 text-white font-semibold rounded-lg shadow-md hover:bg-purple-700 transition duration-300"
-              disabled={loading}
+              disabled={generateQuestionsLoading}
             >
-              {loading ? "Generating..." : "Generate Questions"}
+              {generateQuestionsLoading ? "Generating..." : "Generate Questions"}
             </button>
           </div>
         )}
@@ -763,9 +773,9 @@ function App() {
             <button
               onClick={answerDocQuestion}
               className="w-full px-6 py-3 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700 transition duration-300"
-              disabled={loading}
+              disabled={answerDocQuestionLoading}
             >
-              {loading ? "Submitting..." : "Submit Answer & Get Next Question"}
+              {answerDocQuestionLoading ? "Submitting..." : "Submit Answer & Get Next Question"}
             </button>
           </div>
         )}

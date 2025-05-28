@@ -194,7 +194,7 @@ class IngestionService:
             document_id=document_db_entry.id
         )
 
-    def generate_questions_from_document(self, project_id: str, document_id: str, num_questions_per_chunk: int = 2, max_total_questions: int = 10) -> schemas.DocumentQAGenerateQuestionsResponse:
+    def generate_questions_from_document(self, project_id: str, document_id: str, num_questions_per_chunk: int = 2, max_total_questions: int = 6) -> schemas.DocumentQAGenerateQuestionsResponse:
         """
         Generates questions from a document's content and stores them as unanswered
         TextKnowledgeEntry records, returning their IDs. Aims for a total number of questions.
@@ -214,6 +214,9 @@ class IngestionService:
         split_docs = split_documents(loaded_documents)
         
         generated_question_entry_ids = []
+
+        if Settings().MAX_TOTAL_QUESTIONS_PER_DOCUMENT is not None:
+            max_total_questions = Settings().MAX_TOTAL_QUESTIONS_PER_DOCUMENT
         
         for chunk_idx, doc_chunk in enumerate(split_docs):
             if len(generated_question_entry_ids) >= max_total_questions:

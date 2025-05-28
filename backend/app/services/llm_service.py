@@ -95,7 +95,7 @@ class LLMService:
         return response.content
     
 
-    def generate_questions_from_document_chunk(self, chunk_content: str, num_questions: int = 3) -> List[str]:
+    def generate_questions_from_document_chunk(self, chunk_content: str, num_questions: int = 2) -> List[str]:
         """
         Generates a specified number of questions based on a specific document chunk.
         """

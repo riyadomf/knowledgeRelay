@@ -31,6 +31,10 @@ class Settings(BaseSettings):
     CORS_ORIGINS: List[str] = ["http://localhost", "http://localhost:3000"] # Example origins
     
     TEMP_DIR: str = "/tmp/knowledge_relay_uploads"
+
+
+    # llm parameters
+    MAX_TOTAL_QUESTIONS_PER_DOCUMENT: int = os.getenv("MAX_TOTAL_QUESTIONS_PER_DOCUMENT", 6)
     
 
 settings = Settings()
