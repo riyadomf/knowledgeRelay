@@ -1,3 +1,4 @@
+from ctypes import Union
 import pprint
 from sqlalchemy.orm import Session
 from app import schemas, crud
@@ -7,7 +8,7 @@ from langchain_core.messages import HumanMessage, AIMessage, BaseMessage
 from langchain_core.documents import Document
 from typing import List, Tuple
 import logging
-from langchain_core.output_parsers import PydanticOutputParser
+from langchain_core.output_parsers import PydanticOutputParser, StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import RunnablePassthrough
 
@@ -96,6 +97,21 @@ class RetrievalService:
             ]
         )
         
+        # --- NEW: Define the primary structured output component ---
+        # This is the first attempt, aiming for structured output.
+        primary_structured_qa = (
+            prompt # Use the prompt with format_instructions
+            | self.llm.with_structured_output(schemas.AnswerWithSources)
+        )
+        
+        # --- NEW: Define the fallback raw text output component ---
+        # If the primary fails, this is used. It explicitly removes format_instructions.
+        fallback_raw_qa = (
+            prompt
+            | self.llm # Use the base LLM
+        )
+        logger.info("Fallback raw QA component initialized.")
+        
         
         # Create the structured output runnable
         # It automatically injects the Pydantic schema and handles parsing.
@@ -107,21 +123,28 @@ class RetrievalService:
                 "chat_history": RunnablePassthrough(),
                 "format_instructions": lambda _: self.parser.get_format_instructions() 
             }
-            | prompt
-            | self.llm.with_structured_output(schemas.AnswerWithSources) # <--- THIS IS THE CORRECT USAGE
+            | primary_structured_qa.with_fallbacks([fallback_raw_qa])
         )
         
         # 4. Invoke the Chain
         # The 'context' should be a list of LangChain Document objects.
         # The 'chat_history' should be in LangChain message format.
-        final_structured_response: schemas.AnswerWithSources = structured_output_chain.invoke({
+        final_structured_response: Union[schemas.AnswerWithSources, str] = structured_output_chain.invoke({
             "context": retrieved_langchain_docs, # Pass LangChain Document objects directly
             "input": query,
             "chat_history": lc_chat_history # Use the formatted LangChain chat history
         })
 
         # Format the final answer and sources for your API response
-        generated_answer_markdown = final_structured_response.answer
+        
+        if isinstance(final_structured_response, schemas.AnswerWithSources):
+            logger.info("processing structured response")
+            generated_answer_markdown = final_structured_response.answer
+            sources = final_structured_response.sources
+        else:
+            logger.info("processing raw response")
+            generated_answer_markdown = final_structured_response
+            sources = []
         
         # Append sources in Markdown if you want them embedded in the answer field
         # if final_structured_response.sources:
@@ -151,6 +174,6 @@ class RetrievalService:
         return schemas.ChatResponse(
             project_id=project_id,
             answer=generated_answer_markdown,
-            source_documents=final_structured_response.sources
+            source_documents=sources
         )
         
