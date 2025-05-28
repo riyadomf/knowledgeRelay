@@ -451,35 +451,39 @@ function App() {
 
   const renderRoleSelection = () => (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 p-4">
-      <div className="bg-white p-8 rounded-xl shadow-lg w-full max-w-md text-center">
-        <h2 className="text-3xl font-bold text-gray-800 mb-6">
+      <div className="bg-white p-8 rounded-xl shadow-lg w-full max-w-md">
+        <h2 className="text-3xl font-bold text-gray-800 mb-6 text-center">
           Knowledge Relay
         </h2>
-        <p className="text-gray-600 mb-8">
+        <p className="text-gray-600 mb-8 text-center">
           Please select your role to get started:
         </p>
-        <div className="flex flex-col space-y-4">
+        <div className="grid grid-cols-1 gap-4">
           <button
             onClick={() => {
               setSelectedRole("old_member");
               setCurrentView("project_selection");
             }}
-            className="flex items-center justify-center px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 transition duration-300 ease-in-out transform hover:scale-105"
+            className="flex items-center justify-center px-6 py-4 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 transition duration-300 ease-in-out transform hover:scale-105 min-h-[60px]"
           >
-            <BookOpen className="mr-2" size={20} /> Old Member
+            <BookOpen className="mr-3" size={20} /> 
+            <span>Old Member</span>
           </button>
           <button
             onClick={() => {
               setSelectedRole("new_member");
               setCurrentView("project_selection");
             }}
-            className="flex items-center justify-center px-6 py-3 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700 transition duration-300 ease-in-out transform hover:scale-105"
+            className="flex items-center justify-center px-6 py-4 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700 transition duration-300 ease-in-out transform hover:scale-105 min-h-[60px]"
           >
-            <HelpCircle className="mr-2" size={20} /> New Member
+            <HelpCircle className="mr-3" size={20} /> 
+            <span>New Member</span>
           </button>
         </div>
         {errorMessage && (
-          <p className="text-red-500 mt-4 text-sm">{errorMessage}</p>
+          <div className="mt-6 p-3 bg-red-50 border border-red-200 rounded-lg">
+            <p className="text-red-600 text-sm text-center">{errorMessage}</p>
+          </div>
         )}
       </div>
     </div>
@@ -494,70 +498,81 @@ function App() {
         >
           <ChevronLeft size={20} className="mr-1" /> Back to Role Selection
         </button>
-        <h2 className="text-3xl font-bold text-gray-800 mb-6 text-center">
+        <h2 className="text-3xl font-bold text-gray-800 mb-8 text-center">
           Select {selectedRole !== "new_member" && " or Create "}Project
         </h2>
 
-        {/* Create Project Section — hidden for new_member */}
-        {selectedRole !== "new_member" && (
-          <div className="mb-8 p-6 border border-gray-200 rounded-lg bg-gray-50">
-            <h3 className="text-xl font-semibold text-gray-700 mb-4 flex items-center">
-              <PlusCircle size={20} className="mr-2" /> Create New Project
-            </h3>
-            <input
-              type="text"
-              placeholder="Project Name"
-              value={newProjectName}
-              onChange={(e) => setNewProjectName(e.target.value)}
-              className="w-full p-3 mb-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
-            />
-            <button
-              onClick={handleCreateProject}
-              className="w-full px-6 py-3 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 transition duration-300 ease-in-out"
-              disabled={createProjectLoading}
-            >
-              {createProjectLoading ? "Creating..." : "Create Project"}
-            </button>
-          </div>
-        )}
-
-        {/* Select Project Section */}
-        <div className="p-6 border border-gray-200 rounded-lg bg-gray-50">
-          <h3 className="text-xl font-semibold text-gray-700 mb-4 flex items-center">
-            <FileText size={20} className="mr-2" /> Select Existing Project
-          </h3>
-          {projectsLoading ? (
-            <p className="text-gray-500 text-center">Loading projects...</p>
-          ) : projects.length === 0 ? (
-            <p className="text-gray-500 text-center">
-              No projects available. Create one above!
-            </p>
-          ) : (
-            <select
-              onChange={(e) => {
-                const project = projects.find((p) => p.id === e.target.value);
-                if (project) {
-                  handleSelectProject(project);
-                }
-              }}
-              className="w-full p-3 border border-gray-300 rounded-lg bg-white focus:ring-blue-500 focus:border-blue-500"
-              defaultValue=""
-            >
-              <option value="" disabled>
-                Select a project
-              </option>
-              {projects.map((project) => (
-                <option key={project.id} value={project.id}>
-                  {project.name}
-                </option>
-              ))}
-            </select>
+        <div className="space-y-6">
+          {/* Create Project Section — hidden for new_member */}
+          {selectedRole !== "new_member" && (
+            <div className="p-6 border border-gray-200 rounded-lg bg-gray-50">
+              <h3 className="text-xl font-semibold text-gray-700 mb-4 flex items-center">
+                <PlusCircle size={20} className="mr-2" /> Create New Project
+              </h3>
+              <div className="space-y-4">
+                <input
+                  type="text"
+                  placeholder="Project Name"
+                  value={newProjectName}
+                  onChange={(e) => setNewProjectName(e.target.value)}
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200"
+                />
+                <button
+                  onClick={handleCreateProject}
+                  className="w-full px-6 py-3 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 transition duration-300 ease-in-out disabled:opacity-50 disabled:cursor-not-allowed min-h-[48px]"
+                  disabled={createProjectLoading}
+                >
+                  {createProjectLoading ? "Creating..." : "Create Project"}
+                </button>
+              </div>
+            </div>
           )}
+
+          {/* Select Project Section */}
+          <div className="p-6 border border-gray-200 rounded-lg bg-gray-50">
+            <h3 className="text-xl font-semibold text-gray-700 mb-4 flex items-center">
+              <FileText size={20} className="mr-2" /> Select Existing Project
+            </h3>
+            {projectsLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="text-gray-500">Loading projects...</div>
+              </div>
+            ) : projects.length === 0 ? (
+              <div className="text-center py-8">
+                <p className="text-gray-500">
+                  {selectedRole === "new_member" 
+                    ? "No projects available. Please contact an administrator."
+                    : "No projects available. Create one above!"}
+                </p>
+              </div>
+            ) : (
+              <select
+                onChange={(e) => {
+                  const project = projects.find((p) => p.id === e.target.value);
+                  if (project) {
+                    handleSelectProject(project);
+                  }
+                }}
+                className="w-full p-3 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200"
+                defaultValue=""
+              >
+                <option value="" disabled>
+                  Select a project
+                </option>
+                {projects.map((project) => (
+                  <option key={project.id} value={project.id}>
+                    {project.name}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
         </div>
+
         {errorMessage && (
-          <p className="text-red-500 mt-4 text-sm text-center">
-            {errorMessage}
-          </p>
+          <div className="mt-6 p-3 bg-red-50 border border-red-200 rounded-lg">
+            <p className="text-red-600 text-sm text-center">{errorMessage}</p>
+          </div>
         )}
       </div>
     </div>
@@ -565,46 +580,49 @@ function App() {
 
   const renderQaSelection = () => (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 p-4">
-      <div className="bg-white p-8 rounded-xl shadow-lg w-full max-w-md text-center">
+      <div className="bg-white p-8 rounded-xl shadow-lg w-full max-w-md">
         <button
           onClick={() => setCurrentView("project_selection")}
           className="flex items-center text-gray-600 hover:text-gray-800 mb-6 transition duration-200"
         >
           <ChevronLeft size={20} className="mr-1" /> Back to Project Selection
         </button>
-        <h2 className="text-3xl font-bold text-gray-800 mb-6">
-          {selectedProject
-            ? `Q&A for "${selectedProject.name}"`
-            : "Select Q&A Type"}
+        <h2 className="text-3xl font-bold text-gray-800 mb-6 text-center">
+          {selectedProject ? `Q&A for "${selectedProject.name}"` : "Select Q&A Type"}
         </h2>
-        <p className="text-gray-600 mb-8">
+        <p className="text-gray-600 mb-8 text-center">
           Choose how you want to contribute knowledge:
         </p>
-        <div className="flex flex-col space-y-4">
+        <div className="grid grid-cols-1 gap-4">
           <button
             onClick={startProjectQaSession}
-            className="flex items-center justify-center px-6 py-3 bg-purple-600 text-white font-semibold rounded-lg shadow-md hover:bg-purple-700 transition duration-300 ease-in-out transform hover:scale-105"
+            className="flex items-center justify-center px-6 py-4 bg-purple-600 text-white font-semibold rounded-lg shadow-md hover:bg-purple-700 transition duration-300 ease-in-out transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed min-h-[60px]"
             disabled={loading}
           >
-            <MessageSquareText className="mr-2" size={20} /> Project-based Q&A
+            <MessageSquareText className="mr-3" size={20} /> 
+            <span>Project-based Q&A</span>
           </button>
           <button
             onClick={() => {
               setQaType("document_qa");
               setCurrentView("document_qa");
             }}
-            className="flex items-center justify-center px-6 py-3 bg-orange-600 text-white font-semibold rounded-lg shadow-md hover:bg-orange-700 transition duration-300 ease-in-out transform hover:scale-105"
+            className="flex items-center justify-center px-6 py-4 bg-orange-600 text-white font-semibold rounded-lg shadow-md hover:bg-orange-700 transition duration-300 ease-in-out transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed min-h-[60px]"
             disabled={loading}
           >
-            <FileText className="mr-2" size={20} /> Document-based Q&A
+            <FileText className="mr-3" size={20} /> 
+            <span>Document-based Q&A</span>
           </button>
         </div>
         {errorMessage && (
-          <p className="text-red-500 mt-4 text-sm">{errorMessage}</p>
+          <div className="mt-6 p-3 bg-red-50 border border-red-200 rounded-lg">
+            <p className="text-red-600 text-sm text-center">{errorMessage}</p>
+          </div>
         )}
       </div>
     </div>
   );
+
 
   const renderProjectQa = () => (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 p-4">
@@ -680,18 +698,18 @@ function App() {
               "Session completed or no questions available."}
           </p>
         )}
-        {errorMessage && (
-          <p className="text-red-500 mt-4 text-sm text-center">
-            {errorMessage}
-          </p>
-        )}
+      {errorMessage && (
+        <div className="mt-6 p-3 bg-red-50 border border-red-200 rounded-lg">
+          <p className="text-red-600 text-sm text-center">{errorMessage}</p>
+        </div>
+      )}
       </div>
     </div>
   );
 
   const renderDocumentQa = () => (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 p-4">
-      <div className="bg-white p-8 rounded-xl shadow-lg w-full max-w-3xl">
+      <div className="bg-white p-8 rounded-xl shadow-lg w-full max-w-4xl">
         <button
           onClick={() => {
             setCurrentView("qa_selection");
@@ -705,116 +723,132 @@ function App() {
         >
           <ChevronLeft size={20} className="mr-1" /> Back to Q&A Type Selection
         </button>
-        <h2 className="text-3xl font-bold text-gray-800 mb-6 text-center">
+        <h2 className="text-3xl font-bold text-gray-800 mb-8 text-center">
           Document Q&A for "{selectedProject?.name}"
         </h2>
 
-        {/* Document Upload Section */}
-        <div className="mb-8 p-6 border border-gray-200 rounded-lg bg-gray-50">
-          <h3 className="text-xl font-semibold text-gray-700 mb-4 flex items-center">
-            <Upload size={20} className="mr-2" /> Upload Document
-          </h3>
-          <input
-            type="file"
-            onChange={handleFileChange}
-            className="w-full p-3 mb-4 border border-gray-300 rounded-lg bg-white file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-          />
-          <button
-            onClick={handleUploadDocument}
-            className="w-full px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 transition duration-300"
-            disabled={uploadDocLoading || !selectedFile}  
-          >
-            {uploadDocLoading && selectedFile ? "Uploading..." : "Upload Document"}
-          </button>
+        <div className="space-y-6">
+          {/* Document Upload Section */}
+          <div className="p-6 border border-gray-200 rounded-lg bg-gray-50">
+            <h3 className="text-xl font-semibold text-gray-700 mb-4 flex items-center">
+              <Upload size={20} className="mr-2" /> Upload Document
+            </h3>
+            <div className="space-y-4">
+              <input
+                type="file"
+                onChange={handleFileChange}
+                className="w-full p-3 border border-gray-300 rounded-lg bg-white file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+              />
+              <button
+                onClick={handleUploadDocument}
+                className="w-full px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed min-h-[48px]"
+                disabled={uploadDocLoading || !selectedFile}  
+              >
+                {uploadDocLoading && selectedFile ? "Uploading..." : "Upload Document"}
+              </button>
+              {uploadedDocument && (
+                <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                  <p className="text-green-700 text-center font-medium">
+                    ✓ Uploaded: {uploadedDocument.name}
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Generate Questions Section */}
           {uploadedDocument && (
-            <p className="text-green-600 mt-3 text-center">
-              Uploaded: {uploadedDocument.name}
-            </p>
+            <div className="p-6 border border-gray-200 rounded-lg bg-gray-50">
+              <h3 className="text-xl font-semibold text-gray-700 mb-4 flex items-center">
+                <PlusCircle size={20} className="mr-2" /> Generate Questions
+              </h3>
+              <p className="text-gray-600 mb-4">
+                Click below to generate questions from the uploaded document.
+                These will then be available for you to answer.
+              </p>
+              <button
+                onClick={handleGenerateQuestions}
+                className="w-full px-6 py-3 bg-purple-600 text-white font-semibold rounded-lg shadow-md hover:bg-purple-700 transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed min-h-[48px]"
+                disabled={generateQuestionsLoading}
+              >
+                {generateQuestionsLoading ? "Generating..." : "Generate Questions"}
+              </button>
+            </div>
+          )}
+
+          {/* Document Q&A Section */}
+          {currentDocQuestion && !currentDocQuestion.is_complete && (
+            <div className="p-6 border border-gray-200 rounded-lg bg-white shadow-md">
+              <h3 className="text-xl font-semibold text-gray-700 mb-4">
+                Current Question:
+              </h3>
+              <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg mb-4">
+                <p className="text-gray-800">{currentDocQuestion.question}</p>
+              </div>
+              <div className="space-y-4">
+                <textarea
+                  placeholder="Type your answer here..."
+                  value={docQaAnswer}
+                  onChange={(e) => setDocQaAnswer(e.target.value)}
+                  rows="4"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-y transition duration-200"
+                  disabled={loading}
+                />
+                <button
+                  onClick={answerDocQuestion}
+                  className="w-full px-6 py-3 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700 transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed min-h-[48px]"
+                  disabled={answerDocQuestionLoading}
+                >
+                  {answerDocQuestionLoading ? "Submitting..." : "Submit Answer & Get Next Question"}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Completion Message */}
+          {currentDocQuestion && currentDocQuestion.is_complete && (
+            <div className="p-6 bg-green-50 border border-green-200 rounded-lg text-center">
+              <p className="text-green-700 font-semibold text-lg">
+                🎉 All questions for this document have been answered!
+              </p>
+            </div>
+          )}
+
+          {/* Load Questions Button */}
+          {!currentDocQuestion && uploadedDocument && !loading && (
+            <div className="text-center">
+              <button
+                onClick={fetchNextDocQuestion}
+                className="px-8 py-3 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed min-h-[48px]"
+                disabled={loading}
+              >
+                {loading ? "Loading..." : "Load First Unanswered Question"}
+              </button>
+            </div>
           )}
         </div>
 
-        {/* Generate Questions Section */}
-        {uploadedDocument && (
-          <div className="mb-8 p-6 border border-gray-200 rounded-lg bg-gray-50">
-            <h3 className="text-xl font-semibold text-gray-700 mb-4 flex items-center">
-              <PlusCircle size={20} className="mr-2" /> Generate Questions
-            </h3>
-            <p className="text-gray-600 mb-4">
-              Click below to generate questions from the uploaded document.
-              These will then be available for you to answer.
-            </p>
-            <button
-              onClick={handleGenerateQuestions}
-              className="w-full px-6 py-3 bg-purple-600 text-white font-semibold rounded-lg shadow-md hover:bg-purple-700 transition duration-300"
-              disabled={generateQuestionsLoading}
-            >
-              {generateQuestionsLoading ? "Generating..." : "Generate Questions"}
-            </button>
-          </div>
-        )}
-
-        {/* Document Q&A Section */}
-        {currentDocQuestion && !currentDocQuestion.is_complete && (
-          <div className="p-6 border border-gray-200 rounded-lg bg-white shadow-md">
-            <h3 className="text-xl font-semibold text-gray-700 mb-4">
-              Question:
-            </h3>
-            <div className="bg-gray-100 p-4 rounded-lg mb-4 text-gray-800">
-              <p>{currentDocQuestion.question}</p>
-            </div>
-            <textarea
-              placeholder="Type your answer here..."
-              value={docQaAnswer}
-              onChange={(e) => setDocQaAnswer(e.target.value)}
-              rows="4"
-              className="w-full p-3 mb-4 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 resize-y"
-              disabled={loading}
-            ></textarea>
-            <button
-              onClick={answerDocQuestion}
-              className="w-full px-6 py-3 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700 transition duration-300"
-              disabled={answerDocQuestionLoading}
-            >
-              {answerDocQuestionLoading ? "Submitting..." : "Submit Answer & Get Next Question"}
-            </button>
-          </div>
-        )}
-
-        {currentDocQuestion && currentDocQuestion.is_complete && (
-          <p className="text-center text-green-600 font-semibold mt-4">
-            All questions for this document have been answered!
-          </p>
-        )}
-        {!currentDocQuestion && uploadedDocument && !loading && (
-          <button
-            onClick={fetchNextDocQuestion}
-            className="w-full px-6 py-3 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 transition duration-300 mt-4"
-            disabled={loading}
-          >
-            {loading ? "Loading..." : "Load First Unanswered Question"}
-          </button>
-        )}
         {errorMessage && (
-          <p className="text-red-500 mt-4 text-sm text-center">
-            {errorMessage}
-          </p>
+          <div className="mt-6 p-3 bg-red-50 border border-red-200 rounded-lg">
+            <p className="text-red-600 text-sm text-center">{errorMessage}</p>
+          </div>
         )}
 
         {/* Display Document QA History */}
         {docQaHistory.length > 0 && (
           <div className="mt-8 p-6 border border-gray-200 rounded-lg bg-gray-50">
             <h3 className="text-xl font-semibold text-gray-700 mb-4">
-              Answered Questions:
+              Answered Questions ({docQaHistory.length}):
             </h3>
-            <div className="flex flex-col space-y-4 max-h-60 overflow-y-auto">
+            <div className="space-y-4 max-h-64 overflow-y-auto">
               {docQaHistory.map((entry, index) => (
-                <div key={index} className="p-3 rounded-lg bg-white shadow-sm">
-                  <p className="font-semibold text-blue-700">
+                <div key={index} className="p-4 rounded-lg bg-white shadow-sm border border-gray-100">
+                  <p className="font-semibold text-blue-700 mb-2">
                     Q: {entry.question}
                   </p>
-                  <p className="text-gray-800">A: {entry.answer}</p>
+                  <p className="text-gray-800 mb-2">A: {entry.answer}</p>
                   {entry.source_context && (
-                    <p className="text-xs text-gray-500 mt-1">
+                    <p className="text-xs text-gray-500 italic">
                       Source: {entry.source_context.substring(0, 100)}...
                     </p>
                   )}
@@ -827,9 +861,11 @@ function App() {
     </div>
   );
 
+
   const renderNewMemberQa = () => (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 p-4">
-      <div className="bg-white p-8 rounded-xl shadow-lg w-full max-w-3xl flex flex-col h-[80vh]">
+
+      <div className="bg-white p-8 rounded-xl shadow-lg w-full max-w-7xl flex flex-col h-[90vh]">
         <button
           onClick={() => {
             setCurrentView("project_selection");
@@ -934,11 +970,11 @@ function App() {
             <Send size={20} />
           </button>
         </div>
-        {errorMessage && (
-          <p className="text-red-500 mt-4 text-sm text-center">
-            {errorMessage}
-          </p>
-        )}
+      {errorMessage && (
+        <div className="mt-6 p-3 bg-red-50 border border-red-200 rounded-lg">
+          <p className="text-red-600 text-sm text-center">{errorMessage}</p>
+        </div>
+      )}
       </div>
     </div>
   );
@@ -963,10 +999,11 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen font-sans antialiased text-gray-900">
+    <div className="min-h-screen w-full font-sans antialiased text-gray-900">
       {renderContent()}
     </div>
   );
+
 }
 
 export default App;
