@@ -80,9 +80,8 @@ class LLMService:
         - Key dependencies or contacts
 
         Only ask questions that are not already answered in the above context. If all major topics are covered, suggest ending the session.
-
-        **Respond with a numbered list of exactly {num_of_questions} unique questions.**
-        "Return only a numbered list (e.g., 1. ..., 2. ..., etc.) with no other explanation."
+        **Select {num_of_questions} most important questions.**
+        **Respond with a numbered list (e.g., 1. ..., 2. ..., etc.) of that {num_of_questions} unique questions.**
         """
         
         prompt_template = ChatPromptTemplate.from_messages([
