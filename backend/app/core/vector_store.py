@@ -3,6 +3,8 @@ from chromadb.utils import embedding_functions # CHANGED: Moved import to top-le
 from app.config import settings
 from typing import List, Dict, Optional, Tuple 
 import logging
+import re
+import unicodedata
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +46,21 @@ class ChromaDBManager:
                 logger.error(f"Error initializing SentenceTransformerEmbeddingFunction: {e}. Falling back to default ChromaDB embedding.")
                 return None
 
+    def clean_text(self, text: str) -> str:
+        text = unicodedata.normalize("NFKC", text)
+        text = re.sub(r'[^\x20-\x7E\n]+', ' ', text)  # remove non-ASCII
+        text = re.sub(r'\s+', ' ', text)  # collapse whitespace
+        return text.strip()
+    
+    def cleanDocuments(self, documents: List[str]) -> List[str]:
+        cleaned_documents = []
+        for doc in documents:
+            cleaned_document = self.clean_text(doc)
+            cleaned_documents.append(cleaned_document)
+        return cleaned_documents    
+        
     def add_documents(self, documents: List[str], metadatas: List[Dict], ids: List[str]):
+        documents = self.cleanDocuments(documents)
         try:
             self.collection.add(
                 documents=documents,
