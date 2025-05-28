@@ -88,14 +88,39 @@ class RetrievalService:
         # Define the prompt for the LLM
         prompt = ChatPromptTemplate.from_messages(
             [
-                ("system", "You are an AI assistant tasked with answering questions based on provided documents."),
-                ("system", "Generate a comprehensive and well-structured answer using Markdown. Use headings, bullet points, code snippets (if relevant), and bold text to enhance readability."),
-                ("system", "Carefully read the following context documents to formulate your answer:\n\n{context}\n\n"),
-                ("system", "After providing the answer, list the exact sources you used to construct your response. For each source, include the file name, and optionally its URL/path, and the specific context snippet that was most relevant. Ensure the output strictly adheres to the JSON schema provided for the `AnswerWithSources` Pydantic model."),
-                ("system", "Chat History:\n{chat_history}"),
-                ("human", "{input}")
+                ("system", 
+                "You are a highly capable AI assistant designed to answer user questions using provided document context. "
+                "Your responses must be accurate, grounded in the supplied context, and clearly formatted using Markdown."),
+                
+                ("system", 
+                "Format your answer with:\n"
+                "- **Headings** to organize content\n"
+                "- **Bullet points** for clarity\n"
+                "- **Code snippets** (if relevant)\n"
+                "- **Bold** text for emphasis\n"
+                "Make sure your answer is easy to read and understand."),
+                
+                ("system", 
+                "Use the following context documents to support your answer:\n\n{context}\n\n"
+                "Only use this content to construct your response. Do not infer or hallucinate beyond it."),
+                
+                ("system", 
+                "After answering, return a list of sources used. For each, include:\n"
+                "- File name (mandatory)\n"
+                "- URL or path (if available)\n"
+                "- The exact snippet of text from the context that was most relevant\n"
+                "\n"
+                "**Do not include any source if no document context was actually used. Do not fabricate or guess URLs or file names.**"
+                "**Ensure the output strictly adheres to the JSON schema provided for the `AnswerWithSources` Pydantic model**"),
+                
+                ("system", 
+                "Chat History:\n{chat_history}"),
+                
+                ("human", 
+                "{input}")
             ]
         )
+
         
         # --- NEW: Define the primary structured output component ---
         # This is the first attempt, aiming for structured output.
