@@ -1,4 +1,5 @@
 import logging
+import mimetypes
 import os
 import uuid 
 from typing import List, Dict, Union
@@ -127,7 +128,7 @@ async def ingest_document(
     This step prepares the document for question generation, but doesn't create
     Q&A pairs yet.
     """
-    allowed_file_types = ["pdf", "word", "txt", "md"]
+    allowed_file_types = ["pdf", "docx", "doc", "txt", "csv", "md", "py", "js", "ts", "java", "cpp", "c", "cs", "rb", "go", "php", "rs"]
     file_extension = file.filename.split(".")[-1].lower()
 
     if file_extension not in allowed_file_types:
@@ -292,5 +293,17 @@ def download_file(file_path: str, filename: str):
     # file_path = os.path.join(Settings.TEMP_DIR, project_id, filename)
     if not os.path.exists(file_path):
         raise HTTPException(status_code=404, detail="File not found")
-    return FileResponse(path=file_path, filename=filename, media_type="application/octet-stream")
+    
+    mime_type, _ = mimetypes.guess_type(filename)
+    mime_type = mime_type or "application/octet-stream"
+
+    return FileResponse(
+        path=file_path,
+        media_type=mime_type,
+        filename=filename,
+        headers={
+            "Content-Disposition": f'inline; filename="{filename}"'
+        }
+    )
+    
 

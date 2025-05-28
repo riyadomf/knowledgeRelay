@@ -9,6 +9,10 @@ import {
   HelpCircle,
   BookOpen,
 } from "lucide-react"; // Using lucide-react for icons
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import rehypeHighlight from "rehype-highlight";
+import "highlight.js/styles/github.css"; // Import syntax highlighting style
 
 // Base URL for your FastAPI backend
 const API_BASE_URL = "http://localhost:8000"; // Adjust if your backend is on a different port/host
@@ -303,11 +307,21 @@ function App() {
         );
       }
       const data = await response.json();
-      setCurrentDocQuestion(data);
+
       if (data.question) {
+        setCurrentDocQuestion({
+          question: data.question,
+          question_entry_id: data.question_entry_id,
+          is_complete: false,
+          source_context: data.source_context, // if provided by backend
+        });
         showMessage("Next question loaded.");
       } else {
-        showMessage(data.message); // e.g., "No unanswered questions found"
+        // No more questions available
+        setCurrentDocQuestion({ is_complete: true });
+        showMessage(
+          data.message || "All questions for this document have been answered."
+        );
       }
     } catch (error) {
       console.error("Error fetching next document question:", error);
@@ -334,7 +348,7 @@ function App() {
         {
           question: currentDocQuestion.question,
           answer: docQaAnswer,
-          source_context: currentDocQuestion.source_context, // Assuming source_context might be returned
+          source_context: currentDocQuestion.source_context,
         },
       ]);
 
@@ -359,21 +373,10 @@ function App() {
       const data = await response.json();
       setDocQaAnswer(""); // Clear input
 
-      if (data.is_complete) {
-        setCurrentDocQuestion(null); // No more questions
-        showMessage(
-          data.message || "All questions for this document have been answered."
-        );
-      } else {
-        setCurrentDocQuestion({
-          question: data.next_question,
-          question_entry_id: data.next_question_entry_id,
-          is_complete: data.is_complete,
-        });
-        showMessage(
-          data.message || "Answer recorded. Here is the next question."
-        );
-      }
+      showMessage(data.message || "Answer recorded successfully.");
+
+      // Always fetch the next question after successfully answering
+      await fetchNextDocQuestion();
     } catch (error) {
       console.error("Error answering document question:", error);
       showMessage(`Failed to answer document question: ${error.message}`, true);
@@ -440,7 +443,7 @@ function App() {
     <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 p-4">
       <div className="bg-white p-8 rounded-xl shadow-lg w-full max-w-md text-center">
         <h2 className="text-3xl font-bold text-gray-800 mb-6">
-          Welcome to Knowledge Relay
+          Knowledge Relay
         </h2>
         <p className="text-gray-600 mb-8">
           Please select your role to get started:
@@ -482,29 +485,31 @@ function App() {
           <ChevronLeft size={20} className="mr-1" /> Back to Role Selection
         </button>
         <h2 className="text-3xl font-bold text-gray-800 mb-6 text-center">
-          Select or Create Project
+          Select {selectedRole !== "new_member" && " or Create "}Project
         </h2>
 
-        {/* Create Project Section */}
-        <div className="mb-8 p-6 border border-gray-200 rounded-lg bg-gray-50">
-          <h3 className="text-xl font-semibold text-gray-700 mb-4 flex items-center">
-            <PlusCircle size={20} className="mr-2" /> Create New Project
-          </h3>
-          <input
-            type="text"
-            placeholder="Project Name"
-            value={newProjectName}
-            onChange={(e) => setNewProjectName(e.target.value)}
-            className="w-full p-3 mb-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
-          />
-          <button
-            onClick={handleCreateProject}
-            className="w-full px-6 py-3 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 transition duration-300 ease-in-out"
-            disabled={loading}
-          >
-            {loading ? "Creating..." : "Create Project"}
-          </button>
-        </div>
+        {/* Create Project Section — hidden for new_member */}
+        {selectedRole !== "new_member" && (
+          <div className="mb-8 p-6 border border-gray-200 rounded-lg bg-gray-50">
+            <h3 className="text-xl font-semibold text-gray-700 mb-4 flex items-center">
+              <PlusCircle size={20} className="mr-2" /> Create New Project
+            </h3>
+            <input
+              type="text"
+              placeholder="Project Name"
+              value={newProjectName}
+              onChange={(e) => setNewProjectName(e.target.value)}
+              className="w-full p-3 mb-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+            />
+            <button
+              onClick={handleCreateProject}
+              className="w-full px-6 py-3 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 transition duration-300 ease-in-out"
+              disabled={loading}
+            >
+              {loading ? "Creating..." : "Create Project"}
+            </button>
+          </div>
+        )}
 
         {/* Select Project Section */}
         <div className="p-6 border border-gray-200 rounded-lg bg-gray-50">
@@ -848,7 +853,14 @@ function App() {
               <p className="font-semibold text-sm mb-1">
                 {msg.role === "human" ? "You" : "AI"}
               </p>
-              <p className="text-gray-800">{msg.content}</p>
+
+              <div className="text-gray-800 text-left whitespace-pre-wrap">
+                <ReactMarkdown
+                  children={msg.content}
+                  remarkPlugins={[remarkGfm]}
+                  rehypePlugins={[rehypeHighlight]}
+                />
+              </div>
 
               {msg.sources && msg.sources.length > 0 && (
                 <div className="mt-2 text-xs text-gray-600 border-t border-gray-300 pt-2">
