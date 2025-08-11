@@ -1,3 +1,11 @@
+**Problem:** When team members leave a project, critical, unwritten knowledge is lost. This slows down onboarding for new members, who struggle to find specific answers about deployment processes, business logic, or common pitfalls.
+
+**Solution:** An AI agent using a Retrieval-Augmented Generation (RAG) architecture. The system will:
+
+* Capture Knowledge: Interactively prompt outgoing members with adaptive questions to build a project-specific knowledge base from their expertise and existing documents (PDFs, Word).
+* Deliver Knowledge: Allow new members to ask natural language questions (e.g., "How do we handle token expiration?") and receive concise, contextual answers with source attribution, directly from the curated knowledge base.
+
+This addresses the loss of institutional memory, reduces onboarding time, and prevents new team members from repeating past mistakes.
 
 
 ## **KnowledgeRelay: AI-based Knowledge Transfer Agent**
