@@ -3,7 +3,7 @@ When team members leave a project, critical, unwritten knowledge is lost. This s
 
 ### **Solution:**
 
-An AI agent using a Retrieval-Augmented Generation (RAG) architecture for a smooth and efficient knowledge transfer process. The system will:
+An AI agent serves as a knowledge base, facilitating a smooth and efficient knowledge transfer process. The system will:
 
 * Capture Knowledge: Interactively prompt outgoing members with adaptive questions to build a project-specific knowledge base from their expertise and existing documents (PDFs, Word).
 * Deliver Knowledge: Allow new members to ask natural language questions (e.g., "How do we handle token expiration?") and receive concise, contextual answers with source attribution, directly from the curated knowledge base.
@@ -26,7 +26,7 @@ A Retrieval-Augmented Generation (RAG) system that captures and delivers project
 
   * Context-aware text splitting with overlapping chunks.
   * Custom chunking strategies for code vs. prose.
-  * Cleaning pipeline: emoji removal, non-ASCII filtering, newline normalization.
+  * Cleaning pipeline: emoji removal, non-ASCII filtering, and newline normalization.
 
 
 ### Knowledge Retrieval
@@ -37,4 +37,4 @@ A Retrieval-Augmented Generation (RAG) system that captures and delivers project
 
 ---
 
-* **Technologies:** Python, LangChain, FastAPI, ChromaDB, LLMs (OpenAI, Ollama), React.
+* **Technologies:** Python, LangChain, FastAPI, RAG, ChromaDB, LLMs (OpenAI, Ollama), React.
