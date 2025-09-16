@@ -32,7 +32,7 @@ A Retrieval-Augmented Generation (RAG) system that captures and delivers project
 ### Knowledge Retrieval
 
 * Implemented a RAG-based query engine to retrieve relevant chunks with metadata.
-* Used `contextualize_qa_chain` to reformulate user questions using prior conversation context for improved precision.
+* Used `contextualize_qa_chain` to reformulate follow-up questions using prior conversation context for improved precision.
 * LLM responses are grounded in retrieved sources, with file and context references included.
 
 ---
